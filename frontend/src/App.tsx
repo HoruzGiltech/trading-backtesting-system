@@ -6,9 +6,11 @@ import BacktestListPage from "./pages/BacktestListPage";
 import KillZonesPage from "./pages/KillZonesPage";
 import LandingPage from "./pages/LandingPage";
 import LoginPage from "./pages/LoginPage";
+import NewsPage from "./pages/NewsPage";
 import RegisterPage from "./pages/RegisterPage";
 import RiskCalculatorPage from "./pages/RiskCalculatorPage";
 import TradingPlanPage from "./pages/TradingPlanPage";
+
 
 
 
@@ -60,6 +62,14 @@ function App() {
   element={
     <ProtectedRoute>
       <TradingPlanPage />
+    </ProtectedRoute>
+  }
+/>
+<Route
+  path="/news"
+  element={
+    <ProtectedRoute>
+      <NewsPage />
     </ProtectedRoute>
   }
 />
