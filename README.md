@@ -10,3 +10,7 @@ user de prueba
 "password": "1234",
 "full_name": "prueba"
 }
+
+para generar migraciones despues de crear el model y el schema
+alembic revision --autogenerate -m "comentario"
+alembic upgrade head

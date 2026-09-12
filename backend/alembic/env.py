@@ -10,6 +10,7 @@ from app.core.database import Base
 from app.models.trader import Trader
 from app.models.backtest import Backtest
 from app.models.backtest_entry import BacktestEntry
+from app.models.trading_plan import TradingPlan
 
 config = context.config
 

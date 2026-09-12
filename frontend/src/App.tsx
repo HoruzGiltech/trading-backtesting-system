@@ -3,9 +3,14 @@ import { ProtectedRoute } from "./components/ProtectedRoute";
 import { AuthProvider } from "./context/AuthContext";
 import BacktestDetailPage from "./pages/BacktestDetailPage";
 import BacktestListPage from "./pages/BacktestListPage";
+import KillZonesPage from "./pages/KillZonesPage";
 import LandingPage from "./pages/LandingPage";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
+import RiskCalculatorPage from "./pages/RiskCalculatorPage";
+import TradingPlanPage from "./pages/TradingPlanPage";
+
+
 
 function App() {
   return (
@@ -28,6 +33,33 @@ function App() {
   element={
     <ProtectedRoute>
       <BacktestDetailPage />
+    </ProtectedRoute>
+  }
+/>
+
+<Route
+  path="/risk-calculator"
+  element={
+    <ProtectedRoute>
+      <RiskCalculatorPage />
+    </ProtectedRoute>
+  }
+/>
+
+<Route
+  path="/kill-zones"
+  element={
+    <ProtectedRoute>
+      <KillZonesPage />
+    </ProtectedRoute>
+  }
+/>
+
+<Route
+  path="/trading-plan"
+  element={
+    <ProtectedRoute>
+      <TradingPlanPage />
     </ProtectedRoute>
   }
 />
