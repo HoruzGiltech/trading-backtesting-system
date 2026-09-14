@@ -1,6 +1,7 @@
 import type { FormEvent } from "react";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { LogoLockup } from "../components/Logo";
 import { useAuth } from "../context/AuthContext";
 
 export default function LoginPage() {
@@ -27,6 +28,10 @@ export default function LoginPage() {
 
   return (
     <div className="auth-shell">
+<Link to="/" style={{ display: "inline-block", marginBottom: 32, textDecoration: "none" }}>
+  <LogoLockup iconSize={28} />
+</Link>
+
       <h1>Iniciar sesión</h1>
       <form onSubmit={handleSubmit}>
         <div className="field">

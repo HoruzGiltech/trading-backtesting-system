@@ -1,10 +1,13 @@
 import { Link } from "react-router-dom";
+import { LogoLockup } from "../components/Logo";
 
 export default function LandingPage() {
   return (
     <div>
       <div className="navbar">
-        <span className="navbar-brand">trading<span>.</span>backtest</span>
+        <Link to="/" style={{ textDecoration: "none" }}>
+  <LogoLockup />
+</Link>
         <div style={{ display: "flex", gap: 10 }}>
           <Link to="/login" className="btn">Iniciar sesión</Link>
           <Link to="/register" className="btn btn-primary">Crear cuenta gratis</Link>
@@ -69,9 +72,9 @@ export default function LandingPage() {
           </button>
         </div>
 
-        <p style={{ marginTop: 48, fontSize: 12, textAlign: "center" }}>
-          © {new Date().getFullYear()} trading.backtest
-        </p>
+       <p style={{ marginTop: 48, fontSize: 12, textAlign: "center" }}>
+  © {new Date().getFullYear()} GM Ledger
+</p>
       </div>
     </div>
   );

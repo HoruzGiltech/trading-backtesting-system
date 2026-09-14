@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { LogoLockup } from "./Logo";
 import { Sidebar, SidebarToggleButton } from "./Sidebar";
 
 export function Layout({ children }: { children: ReactNode }) {
@@ -19,7 +20,9 @@ export function Layout({ children }: { children: ReactNode }) {
             {isAuthenticated && (
               <SidebarToggleButton onClick={() => setMobileOpen(true)} />
             )}
-            <Link to="/backtests" className="navbar-brand">trading<span>.</span>backtest</Link>
+            <Link to="/backtests" style={{ textDecoration: "none" }}>
+  <LogoLockup iconSize={28} />
+</Link>
           </div>
           {isAuthenticated && (
             <button className="btn" onClick={logout}>Cerrar sesión</button>
