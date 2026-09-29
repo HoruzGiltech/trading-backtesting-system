@@ -11,6 +11,8 @@ from app.models.trader import Trader
 from app.models.backtest import Backtest
 from app.models.backtest_entry import BacktestEntry
 from app.models.trading_plan import TradingPlan
+from app.models.trade import Trade
+from app.models.api_token import ApiToken
 
 config = context.config
 

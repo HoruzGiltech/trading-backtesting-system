@@ -1,0 +1,18 @@
+{
+  "manifest_version": 3,
+  "name": "GM Ledger Sync",
+  "version": "1.0.0",
+  "description": "Registra automáticamente tus operaciones cerradas de FundingPips en tu diario de GM Ledger.",
+  "permissions": ["storage"],
+  "optional_host_permissions": ["https://*/*", "http://localhost/*", "http://127.0.0.1/*"],
+  "background": { "service_worker": "background.js" },
+  "content_scripts": [
+    {
+      "matches": ["https://mtr-platform.fundingpips.com/*"],
+      "js": ["parser.js", "content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "options_page": "options.html",
+  "action": { "default_title": "GM Ledger Sync", "default_popup": "options.html" }
+}

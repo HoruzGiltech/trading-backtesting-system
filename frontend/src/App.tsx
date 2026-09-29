@@ -9,6 +9,7 @@ import LoginPage from "./pages/LoginPage";
 import NewsPage from "./pages/NewsPage";
 import RegisterPage from "./pages/RegisterPage";
 import RiskCalculatorPage from "./pages/RiskCalculatorPage";
+import TradeJournalPage from "./pages/TradeJournalPage";
 import TradingPlanPage from "./pages/TradingPlanPage";
 
 
@@ -62,6 +63,14 @@ function App() {
   element={
     <ProtectedRoute>
       <TradingPlanPage />
+    </ProtectedRoute>
+  }
+/>
+<Route
+  path="/journal"
+  element={
+    <ProtectedRoute>
+      <TradeJournalPage />
     </ProtectedRoute>
   }
 />

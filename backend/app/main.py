@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.api import auth, backtests, trading_plans, news
+from app.api import auth, backtests, trading_plans, news, trades, api_tokens
 from app.core.config import settings
 
 
@@ -18,6 +18,8 @@ app.include_router(auth.router)
 app.include_router(backtests.router)
 app.include_router(trading_plans.router)
 app.include_router(news.router)
+app.include_router(trades.router)
+app.include_router(api_tokens.router)
 
 @app.get("/health")
 def health_check():
