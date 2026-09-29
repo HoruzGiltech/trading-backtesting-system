@@ -1,4 +1,5 @@
 import {
+    BookOpen,
     Calculator,
     ChevronLeft, ChevronRight,
     Clock,
@@ -13,6 +14,7 @@ import { NavLink } from "react-router-dom";
 
 const LINKS = [
   { to: "/backtests", label: "Backtests", icon: LineChart },
+  { to: "/journal", label: "Diario", icon: BookOpen },
   { to: "/risk-calculator", label: "Calculadora", icon: Calculator },
   { to: "/kill-zones", label: "Kill Zones", icon: Clock },
   { to: "/trading-plan", label: "Plan de trading", icon: NotebookPen },
