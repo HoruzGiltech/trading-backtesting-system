@@ -1,13 +1,22 @@
+import type { FormEvent } from "react";
 import { useEffect, useState } from "react";
+import { isAxiosError } from "axios";
 import { Layout } from "../components/Layout";
+import { downloadCsv } from "../services/csvExport";
 import {
-  createApiToken, deleteTrade, getTradeJournal, listApiTokens,
+  addNoTradeDay, createApiToken, deleteTrade, getTradeJournal, listApiTokens,
   revokeApiToken, updateTradeObservations,
 } from "../services/tradeService";
 import type { ApiToken, TradeJournal } from "../types/trade";
 
-const RESULT_LABEL: Record<string, string> = { WIN: "WIN", LOSS: "LOSS", BE: "BE" };
-const RESULT_CLASS: Record<string, string> = { WIN: "result-tp", LOSS: "result-sl", BE: "" };
+const RESULT_LABEL: Record<string, string> = { WIN: "WIN", LOSS: "LOSS", BE: "BE", NO_TRADE: "No operado" };
+const RESULT_CLASS: Record<string, string> = { WIN: "result-tp", LOSS: "result-sl", BE: "", NO_TRADE: "result-none" };
+
+// Fecha local de hoy en formato YYYY-MM-DD (para <input type="date">)
+function todayIso() {
+  const now = new Date();
+  return new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+}
 
 export default function TradeJournalPage() {
   const [journal, setJournal] = useState<TradeJournal | null>(null);
@@ -16,6 +25,11 @@ export default function TradeJournalPage() {
   const [newToken, setNewToken] = useState<string | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
+  const [showNoTrade, setShowNoTrade] = useState(false);
+  const [noTradeDate, setNoTradeDate] = useState(todayIso());
+  const [noTradeReason, setNoTradeReason] = useState("");
+  const [noTradeError, setNoTradeError] = useState<string | null>(null);
+  const [savingNoTrade, setSavingNoTrade] = useState(false);
 
   useEffect(() => {
     load();
@@ -51,9 +65,43 @@ export default function TradeJournalPage() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("¿Eliminar esta operación del diario?")) return;
+    if (!confirm("¿Eliminar esta fila del diario?")) return;
     await deleteTrade(id);
     setJournal(await getTradeJournal());
+  }
+
+  async function handleAddNoTrade(e: FormEvent) {
+    e.preventDefault();
+    setSavingNoTrade(true);
+    setNoTradeError(null);
+    try {
+      await addNoTradeDay(noTradeDate, noTradeReason.trim());
+      setNoTradeReason("");
+      setShowNoTrade(false);
+      setJournal(await getTradeJournal());
+    } catch (err) {
+      setNoTradeError(
+        isAxiosError(err) && err.response?.status === 409
+          ? "Ese día ya está registrado como no operado."
+          : "No se pudo registrar el día. Inténtalo de nuevo."
+      );
+    } finally {
+      setSavingNoTrade(false);
+    }
+  }
+
+  function handleExportCsv() {
+    if (!journal) return;
+    downloadCsv(
+      `diario_operaciones_${todayIso()}.csv`,
+      ["fecha_cierre", "simbolo", "lado", "lotes", "precio_apertura", "precio_cierre", "resultado",
+        "pips", "porcentaje", "monto", "observaciones", "cuenta", "fuente"],
+      journal.trades.map((t) => [
+        t.result === "NO_TRADE" ? t.closed_at.slice(0, 10) : t.closed_at,
+        t.symbol, t.side, t.volume, t.open_price, t.close_price, t.result,
+        t.pips, t.percentage, t.profit, t.observations, t.account_number, t.source,
+      ])
+    );
   }
 
   const fmt = (n: number) => (n > 0 ? "num-positive" : n < 0 ? "num-negative" : "");
@@ -81,11 +129,46 @@ export default function TradeJournalPage() {
             <div className="summary-cell"><div className="label">Pips netos</div><div className={`value ${fmt(s.net_pips)}`}>{s.net_pips}</div></div>
             <div className="summary-cell"><div className="label">Win rate</div><div className="value">{s.win_rate}%</div></div>
             <div className="summary-cell"><div className="label">Profit factor</div><div className="value">{s.profit_factor ?? "N/A"}</div></div>
+            <div className="summary-cell"><div className="label">Días sin operar</div><div className="value">{s.no_trade_count}</div></div>
           </div>
         </>
       )}
 
-      <h2>Operaciones</h2>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        <h2>Operaciones</h2>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button className="btn" onClick={() => { setShowNoTrade(!showNoTrade); setNoTradeError(null); }}>
+            {showNoTrade ? "Cancelar" : "+ Día sin operar"}
+          </button>
+          <button className="btn" onClick={handleExportCsv} disabled={!journal || journal.trades.length === 0}>
+            Descargar CSV
+          </button>
+        </div>
+      </div>
+
+      {showNoTrade && (
+        <form className="panel" onSubmit={handleAddNoTrade}>
+          <div className="form-row">
+            <div className="field">
+              <label>Fecha</label>
+              <input type="date" value={noTradeDate} onChange={(e) => setNoTradeDate(e.target.value)} required />
+            </div>
+            <div className="field">
+              <label>Motivo por el que no se operó</label>
+              <input
+                type="text" value={noTradeReason} maxLength={500} autoFocus required
+                placeholder="Ej: noticia de alto impacto, sin setup válido..."
+                onChange={(e) => setNoTradeReason(e.target.value)}
+              />
+            </div>
+          </div>
+          {noTradeError && <p style={{ color: "var(--loss)", margin: "0 0 8px" }}>{noTradeError}</p>}
+          <button type="submit" className="btn btn-primary" disabled={savingNoTrade || !noTradeReason.trim()}>
+            {savingNoTrade ? "Guardando..." : "Registrar día sin operar"}
+          </button>
+        </form>
+      )}
+
       <div className="panel" style={{ padding: 0, overflowX: "auto" }}>
         {journal && journal.trades.length > 0 ? (
           <table>
@@ -96,18 +179,20 @@ export default function TradeJournalPage() {
               </tr>
             </thead>
             <tbody>
-              {journal.trades.map((t) => (
+              {journal.trades.map((t) => {
+                const noTrade = t.result === "NO_TRADE";
+                return (
                 <tr key={t.id}>
-                  <td>{new Date(t.closed_at).toLocaleString()}</td>
-                  <td>{t.symbol}</td>
-                  <td>{t.side === "BUY" ? "Compra" : "Venta"}</td>
-                  <td>{t.volume}</td>
-                  <td>{t.open_price}</td>
-                  <td>{t.close_price}</td>
+                  <td>{noTrade ? new Date(t.closed_at).toLocaleDateString() : new Date(t.closed_at).toLocaleString()}</td>
+                  <td>{t.symbol ?? "—"}</td>
+                  <td>{noTrade ? "—" : t.side === "BUY" ? "Compra" : "Venta"}</td>
+                  <td>{t.volume ?? "—"}</td>
+                  <td>{t.open_price ?? "—"}</td>
+                  <td>{t.close_price ?? "—"}</td>
                   <td><span className={`result-badge ${RESULT_CLASS[t.result]}`}>{RESULT_LABEL[t.result]}</span></td>
-                  <td className={fmt(t.pips)}>{t.pips}</td>
+                  <td className={fmt(t.pips)}>{noTrade ? "—" : t.pips}</td>
                   <td className={fmt(t.percentage ?? 0)}>{t.percentage != null ? `${t.percentage}%` : "—"}</td>
-                  <td className={fmt(t.profit)}>{t.profit}</td>
+                  <td className={fmt(t.profit)}>{noTrade ? "—" : t.profit}</td>
                   <td style={{ color: "var(--text-muted)", minWidth: 200 }}>
                     {editing === t.id ? (
                       <div className="field" style={{ margin: 0, display: "flex", gap: 6 }}>
@@ -128,7 +213,8 @@ export default function TradeJournalPage() {
                     <button className="btn" onClick={() => handleDelete(t.id)} aria-label="Eliminar">✕</button>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         ) : (

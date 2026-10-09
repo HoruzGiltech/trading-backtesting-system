@@ -11,6 +11,11 @@ export async function updateTradeObservations(id: string, observations: string):
   return response.data;
 }
 
+export async function addNoTradeDay(date: string, reason: string): Promise<Trade> {
+  const response = await api.post<Trade>("/trades/no-trade-days", { date, reason });
+  return response.data;
+}
+
 export async function deleteTrade(id: string): Promise<void> {
   await api.delete(`/trades/${id}`);
 }

@@ -36,7 +36,8 @@ def calculate_percentage(profit: Decimal, account_size: Optional[Decimal]) -> Op
 
 
 def calculate_trade_summary(trades: List[Trade]) -> TradeSummary:
-    total = len(trades)
+    no_trade_count = sum(1 for t in trades if t.result == "NO_TRADE")
+    total = len(trades) - no_trade_count
     wins = [t for t in trades if t.result == "WIN"]
     losses = [t for t in trades if t.result == "LOSS"]
     be = [t for t in trades if t.result == "BE"]
@@ -53,6 +54,7 @@ def calculate_trade_summary(trades: List[Trade]) -> TradeSummary:
 
     return TradeSummary(
         total_trades=total,
+        no_trade_count=no_trade_count,
         win_count=len(wins),
         loss_count=len(losses),
         be_count=len(be),

@@ -1,15 +1,16 @@
-export type TradeResult = "WIN" | "LOSS" | "BE";
+export type TradeResult = "WIN" | "LOSS" | "BE" | "NO_TRADE";
 
 export interface Trade {
   id: string;
   external_id: string;
   source: string;
   account_number?: string | null;
-  symbol: string;
-  side: "BUY" | "SELL";
-  volume: number;
-  open_price: number;
-  close_price: number;
+  // null en las filas de "día sin operar" (result = "NO_TRADE")
+  symbol: string | null;
+  side: "BUY" | "SELL" | null;
+  volume: number | null;
+  open_price: number | null;
+  close_price: number | null;
   closed_at: string;
   profit: number;
   pips: number;
@@ -20,6 +21,7 @@ export interface Trade {
 
 export interface TradeSummary {
   total_trades: number;
+  no_trade_count: number;
   win_count: number;
   loss_count: number;
   be_count: number;

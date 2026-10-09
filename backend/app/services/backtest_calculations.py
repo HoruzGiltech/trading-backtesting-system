@@ -5,11 +5,14 @@ from app.schemas.backtest import BacktestSummary
 
 
 def calculate_summary(entries: List[BacktestEntry]) -> BacktestSummary:
+    # Los días sin operar no cuentan para ninguna métrica
+    no_trade_count = sum(1 for e in entries if e.result == ResultType.NO_TRADE)
+    entries = [e for e in entries if e.result != ResultType.NO_TRADE]
     total_days = len(entries)
 
     if total_days == 0:
         return BacktestSummary(
-            total_days=0, tp_count=0, sl_count=0,
+            total_days=0, no_trade_count=no_trade_count, tp_count=0, sl_count=0,
             profit_amount=0, loss_amount=0, net_profit=0,
             profit_amount_pct=0, loss_amount_pct=0, net_profit_pct=0,
             win_rate=0, profit_factor=None, consistency_margin=0,
@@ -47,6 +50,7 @@ def calculate_summary(entries: List[BacktestEntry]) -> BacktestSummary:
 
     return BacktestSummary(
         total_days=total_days,
+        no_trade_count=no_trade_count,
         tp_count=tp_count,
         sl_count=sl_count,
         profit_amount=round(profit_amount, 2),

@@ -2,7 +2,7 @@ from pydantic import BaseModel, Field
 from typing import Annotated, Literal, Optional
 from decimal import Decimal
 from uuid import UUID
-from datetime import datetime
+from datetime import date, datetime
 
 # --- Sincronización desde la extensión ---
 
@@ -38,11 +38,11 @@ class TradeOut(BaseModel):
     external_id: str
     source: str
     account_number: Optional[str] = None
-    symbol: str
-    side: str
-    volume: float
-    open_price: float
-    close_price: float
+    symbol: Optional[str] = None
+    side: Optional[str] = None
+    volume: Optional[float] = None
+    open_price: Optional[float] = None
+    close_price: Optional[float] = None
     closed_at: datetime
     profit: float
     pips: float
@@ -58,8 +58,14 @@ class TradeUpdate(BaseModel):
     observations: Optional[str] = None
 
 
+class NoTradeDayCreate(BaseModel):
+    date: date
+    reason: Annotated[str, Field(min_length=1, max_length=500)]
+
+
 class TradeSummary(BaseModel):
-    total_trades: int
+    total_trades: int        # no cuenta los días sin operar
+    no_trade_count: int
     win_count: int
     loss_count: int
     be_count: int
