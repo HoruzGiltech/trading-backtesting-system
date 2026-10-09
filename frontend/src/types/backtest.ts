@@ -15,6 +15,10 @@ export type EntryResult = ResultType | "NO_TRADE";
 export interface BacktestEntry {
   id: string;
   entry_date: string;
+  // null en los días sin operar y en filas anteriores a estos campos
+  side: "BUY" | "SELL" | null;
+  open_price: number | null;
+  close_price: number | null;
   result: EntryResult;
   percentage: number;
   amount: number;
