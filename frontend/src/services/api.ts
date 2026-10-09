@@ -13,11 +13,13 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Interceptor: si el backend responde 401, el token expiró o es inválido -> logout
+// Interceptor: si el backend responde 401, el token expiró o es inválido -> logout.
+// En /auth/* un 401 significa credenciales incorrectas: lo maneja el formulario, sin redirigir.
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    const isAuthRequest = error.config?.url?.startsWith("/auth/");
+    if (error.response?.status === 401 && !isAuthRequest) {
       localStorage.removeItem("access_token");
       window.location.href = "/login";
     }
