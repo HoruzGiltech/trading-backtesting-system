@@ -1,6 +1,7 @@
 import type { FormEvent } from "react";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { isAxiosError } from "axios";
 import { LogoLockup } from "../components/Logo";
 import { useAuth } from "../context/AuthContext";
 
@@ -19,8 +20,12 @@ export default function LoginPage() {
     try {
       await login(email, password);
       navigate("/backtests");
-    } catch {
-      setError("Email o contraseña incorrectos");
+    } catch (err) {
+      setError(
+        isAxiosError(err) && err.response?.status === 401
+          ? "Usuario o contraseña inválidos, intenta de nuevo."
+          : "No se pudo iniciar sesión. Revisa tu conexión e intenta de nuevo."
+      );
     } finally {
       setLoading(false);
     }

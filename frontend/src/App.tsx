@@ -7,6 +7,7 @@ import KillZonesPage from "./pages/KillZonesPage";
 import LandingPage from "./pages/LandingPage";
 import LoginPage from "./pages/LoginPage";
 import NewsPage from "./pages/NewsPage";
+import NotFoundPage from "./pages/NotFoundPage";
 import RegisterPage from "./pages/RegisterPage";
 import RiskCalculatorPage from "./pages/RiskCalculatorPage";
 import TradeJournalPage from "./pages/TradeJournalPage";
@@ -82,6 +83,7 @@ function App() {
     </ProtectedRoute>
   }
 />
+          <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </AuthProvider>
     </BrowserRouter>
