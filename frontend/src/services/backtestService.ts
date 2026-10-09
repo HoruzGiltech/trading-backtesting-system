@@ -37,3 +37,11 @@ export async function addBacktestEntry(
   const response = await api.post(`/backtests/${backtestId}/entries`, data);
   return response.data;
 }
+
+export async function addNoTradeDay(backtestId: string, entryDate: string, reason: string) {
+  const response = await api.post(`/backtests/${backtestId}/no-trade-days`, {
+    entry_date: entryDate,
+    reason,
+  });
+  return response.data;
+}

@@ -186,6 +186,7 @@ tr:last-child td { border-bottom: none; }
 
 .result-tp { background: var(--win-dim); color: var(--win); }
 .result-sl { background: var(--loss-dim); color: var(--loss); }
+.result-none { background: var(--surface-hover); color: var(--text-muted); }
 
 .num-positive { color: var(--win); }
 .num-negative { color: var(--loss); }

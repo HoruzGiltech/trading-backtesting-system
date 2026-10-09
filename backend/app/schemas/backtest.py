@@ -36,6 +36,10 @@ class BacktestEntryCreate(BaseModel):
     pips_ticks: Annotated[Decimal, Field(max_digits=10, decimal_places=2)]
     observations: Optional[str] = None
 
+class NoTradeEntryCreate(BaseModel):
+    entry_date: date
+    reason: Annotated[str, Field(min_length=1, max_length=500)]
+
 class BacktestEntryOut(BaseModel):
     id: UUID
     entry_date: date
@@ -51,7 +55,8 @@ class BacktestEntryOut(BaseModel):
 # --- Resumen calculado ---
 
 class BacktestSummary(BaseModel):
-    total_days: int
+    total_days: int          # días operados (no cuenta los días sin operar)
+    no_trade_count: int
     tp_count: int
     sl_count: int
     profit_amount: float

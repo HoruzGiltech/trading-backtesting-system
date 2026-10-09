@@ -21,17 +21,18 @@ class Trade(Base):
     source = Column(String, nullable=False, default="manual")  # ej: "fundingpips"
     account_number = Column(String, nullable=True)        # ej: "2005196"
 
-    symbol = Column(String, nullable=False)                # ej: "EURUSD"
-    side = Column(String, nullable=False)                  # "BUY" | "SELL"
-    volume = Column(Numeric(10, 2), nullable=False)        # lotes
-    open_price = Column(Numeric(14, 6), nullable=False)
-    close_price = Column(Numeric(14, 6), nullable=False)
+    # Estos cinco quedan en NULL en las filas de "día sin operar" (result = "NO_TRADE")
+    symbol = Column(String, nullable=True)                 # ej: "EURUSD"
+    side = Column(String, nullable=True)                   # "BUY" | "SELL"
+    volume = Column(Numeric(10, 2), nullable=True)         # lotes
+    open_price = Column(Numeric(14, 6), nullable=True)
+    close_price = Column(Numeric(14, 6), nullable=True)
     closed_at = Column(DateTime(timezone=True), nullable=False)
 
     profit = Column(Numeric(12, 2), nullable=False)        # con signo
     pips = Column(Numeric(10, 2), nullable=False)          # con signo
     percentage = Column(Numeric(8, 2), nullable=True)      # con signo, sobre account_size
-    result = Column(String, nullable=False)                # "WIN" | "LOSS" | "BE"
+    result = Column(String, nullable=False)                # "WIN" | "LOSS" | "BE" | "NO_TRADE"
 
     observations = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

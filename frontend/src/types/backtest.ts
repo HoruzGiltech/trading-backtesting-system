@@ -9,11 +9,13 @@ export interface Backtest {
 }
 
 export type ResultType = "TP" | "SL";
+// "NO_TRADE" = día sin operar; el motivo va en observations
+export type EntryResult = ResultType | "NO_TRADE";
 
 export interface BacktestEntry {
   id: string;
   entry_date: string;
-  result: ResultType;
+  result: EntryResult;
   percentage: number;
   amount: number;
   pips_ticks: number;
@@ -22,6 +24,7 @@ export interface BacktestEntry {
 
 export interface BacktestSummary {
   total_days: number;
+  no_trade_count: number;
   tp_count: number;
   sl_count: number;
   profit_amount: number;

@@ -1,3 +1,4 @@
+from datetime import datetime, time, timezone
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -6,7 +7,7 @@ from app.core.deps import get_current_trader, get_trader_from_api_token
 from app.models.trade import Trade
 from app.models.trader import Trader
 from app.schemas.trade import (
-    TradeJournal, TradeOut, TradeSyncRequest, TradeSyncResponse, TradeUpdate,
+    NoTradeDayCreate, TradeJournal, TradeOut, TradeSyncRequest, TradeSyncResponse, TradeUpdate,
 )
 from app.services.trade_calculations import (
     calculate_percentage, calculate_pips, calculate_trade_summary, classify_result,
@@ -70,6 +71,37 @@ def list_trades(
         .all()
     )
     return TradeJournal(trades=trades, summary=calculate_trade_summary(trades))
+
+
+@router.post("/no-trade-days", response_model=TradeOut, status_code=status.HTTP_201_CREATED)
+def add_no_trade_day(
+    data: NoTradeDayCreate,
+    db: Session = Depends(get_db),
+    current_trader: Trader = Depends(get_current_trader),
+):
+    """Registra en el diario un día en el que no se operó, con su motivo."""
+    # external_id estable por fecha: la restricción única impide repetir el mismo día
+    external_id = f"no-trade:{data.date.isoformat()}"
+    already = db.query(Trade).filter(
+        Trade.trader_id == current_trader.id, Trade.external_id == external_id
+    ).first()
+    if already:
+        raise HTTPException(status_code=409, detail="Ese día ya está registrado como no operado")
+    trade = Trade(
+        trader_id=current_trader.id,
+        external_id=external_id,
+        source="manual",
+        # mediodía UTC para que la fecha no cambie al mostrarla en hora local
+        closed_at=datetime.combine(data.date, time(12), tzinfo=timezone.utc),
+        profit=0,
+        pips=0,
+        result="NO_TRADE",
+        observations=data.reason.strip(),
+    )
+    db.add(trade)
+    db.commit()
+    db.refresh(trade)
+    return trade
 
 
 def _get_owned_trade(trade_id: UUID, db: Session, current_trader: Trader) -> Trade:

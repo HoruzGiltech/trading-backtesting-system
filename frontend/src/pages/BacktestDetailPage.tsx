@@ -1,8 +1,10 @@
 import type { FormEvent } from "react";
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import { isAxiosError } from "axios";
 import { Layout } from "../components/Layout";
-import { addBacktestEntry, getBacktestDetail } from "../services/backtestService";
+import { addBacktestEntry, addNoTradeDay, getBacktestDetail } from "../services/backtestService";
+import { downloadCsv } from "../services/csvExport";
 import type { BacktestDetail, ResultType } from "../types/backtest";
 
 export default function BacktestDetailPage() {
@@ -17,6 +19,12 @@ export default function BacktestDetailPage() {
   const [pipsTicks, setPipsTicks] = useState("");
   const [observations, setObservations] = useState("");
   const [saving, setSaving] = useState(false);
+
+  const [showNoTrade, setShowNoTrade] = useState(false);
+  const [noTradeDate, setNoTradeDate] = useState("");
+  const [noTradeReason, setNoTradeReason] = useState("");
+  const [noTradeError, setNoTradeError] = useState<string | null>(null);
+  const [savingNoTrade, setSavingNoTrade] = useState(false);
 
   useEffect(() => {
     if (id) loadDetail(id);
@@ -50,6 +58,41 @@ export default function BacktestDetailPage() {
     } finally {
       setSaving(false);
     }
+  }
+
+  async function handleAddNoTrade(e: FormEvent) {
+    e.preventDefault();
+    if (!id) return;
+    setSavingNoTrade(true);
+    setNoTradeError(null);
+    try {
+      await addNoTradeDay(id, noTradeDate, noTradeReason.trim());
+      setNoTradeDate(""); setNoTradeReason("");
+      setShowNoTrade(false);
+      await loadDetail(id);
+    } catch (err) {
+      setNoTradeError(
+        isAxiosError(err) && err.response?.status === 409
+          ? "Ese día ya está registrado como no operado."
+          : "No se pudo registrar el día. Inténtalo de nuevo."
+      );
+    } finally {
+      setSavingNoTrade(false);
+    }
+  }
+
+  function handleExportCsv() {
+    if (!detail) return;
+    const month = String(detail.month).padStart(2, "0");
+    const asset = detail.asset.replace(/[^A-Za-z0-9]+/g, "");
+    downloadCsv(
+      `backtest_${asset}_${detail.year}-${month}_${detail.timeframe}.csv`,
+      ["fecha", "activo", "temporalidad", "resultado", "porcentaje", "monto", "pips_ticks", "observaciones"],
+      detail.entries.map((entry) => [
+        entry.entry_date, detail.asset, detail.timeframe, entry.result,
+        entry.percentage, entry.amount, entry.pips_ticks, entry.observations,
+      ])
+    );
   }
 
   if (loading) return <Layout><p>Cargando...</p></Layout>;
@@ -100,7 +143,41 @@ export default function BacktestDetailPage() {
         </button>
       </form>
 
-      <h2>Días operados</h2>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        <h2>Días registrados</h2>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button className="btn" onClick={() => { setShowNoTrade(!showNoTrade); setNoTradeError(null); }}>
+            {showNoTrade ? "Cancelar" : "+ Día sin operar"}
+          </button>
+          <button className="btn" onClick={handleExportCsv} disabled={detail.entries.length === 0}>
+            Descargar CSV
+          </button>
+        </div>
+      </div>
+
+      {showNoTrade && (
+        <form className="panel" onSubmit={handleAddNoTrade}>
+          <div className="form-row">
+            <div className="field">
+              <label>Fecha</label>
+              <input type="date" value={noTradeDate} onChange={(e) => setNoTradeDate(e.target.value)} required />
+            </div>
+            <div className="field">
+              <label>Motivo por el que no se operó</label>
+              <input
+                type="text" value={noTradeReason} maxLength={500} required
+                placeholder="Ej: noticia de alto impacto, sin setup válido..."
+                onChange={(e) => setNoTradeReason(e.target.value)}
+              />
+            </div>
+          </div>
+          {noTradeError && <p style={{ color: "var(--loss)", margin: "0 0 8px" }}>{noTradeError}</p>}
+          <button type="submit" className="btn btn-primary" disabled={savingNoTrade || !noTradeReason.trim()}>
+            {savingNoTrade ? "Guardando..." : "Registrar día sin operar"}
+          </button>
+        </form>
+      )}
+
       <div className="panel" style={{ padding: 0 }}>
         <table>
           <thead>
@@ -109,23 +186,33 @@ export default function BacktestDetailPage() {
             </tr>
           </thead>
           <tbody>
-            {detail.entries.map((entry) => (
-              <tr key={entry.id}>
-                <td>{entry.entry_date}</td>
-                <td><span className={`result-badge ${entry.result === "TP" ? "result-tp" : "result-sl"}`}>{entry.result}</span></td>
-                <td className={fmt(entry.percentage)}>{entry.percentage}%</td>
-                <td className={fmt(entry.amount)}>{entry.amount}</td>
-                <td className={fmt(entry.pips_ticks)}>{entry.pips_ticks}</td>
-                <td style={{ color: "var(--text-muted)" }}>{entry.observations}</td>
-              </tr>
-            ))}
+            {detail.entries.map((entry) =>
+              entry.result === "NO_TRADE" ? (
+                <tr key={entry.id}>
+                  <td>{entry.entry_date}</td>
+                  <td><span className="result-badge result-none">No operado</span></td>
+                  <td>—</td><td>—</td><td>—</td>
+                  <td style={{ color: "var(--text-muted)" }}>{entry.observations}</td>
+                </tr>
+              ) : (
+                <tr key={entry.id}>
+                  <td>{entry.entry_date}</td>
+                  <td><span className={`result-badge ${entry.result === "TP" ? "result-tp" : "result-sl"}`}>{entry.result}</span></td>
+                  <td className={fmt(entry.percentage)}>{entry.percentage}%</td>
+                  <td className={fmt(entry.amount)}>{entry.amount}</td>
+                  <td className={fmt(entry.pips_ticks)}>{entry.pips_ticks}</td>
+                  <td style={{ color: "var(--text-muted)" }}>{entry.observations}</td>
+                </tr>
+              )
+            )}
           </tbody>
         </table>
       </div>
 
       <h2>Resumen</h2>
       <div className="summary-grid">
-        <div className="summary-cell"><div className="label">Total días</div><div className="value">{summary.total_days}</div></div>
+        <div className="summary-cell"><div className="label">Días operados</div><div className="value">{summary.total_days}</div></div>
+        <div className="summary-cell"><div className="label">Días sin operar</div><div className="value">{summary.no_trade_count}</div></div>
         <div className="summary-cell"><div className="label">Trades TP</div><div className="value" style={{ color: "var(--win)" }}>{summary.tp_count}</div></div>
         <div className="summary-cell"><div className="label">Trades SL</div><div className="value" style={{ color: "var(--loss)" }}>{summary.sl_count}</div></div>
         <div className="summary-cell"><div className="label">Beneficio</div><div className="value num-positive">{summary.profit_amount}</div></div>

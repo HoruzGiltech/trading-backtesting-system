@@ -8,6 +8,7 @@ from app.core.database import Base
 class ResultType(str, enum.Enum):
     TP = "TP"
     SL = "SL"
+    NO_TRADE = "NO_TRADE"   # día sin operar; el motivo va en observations
 
 class BacktestEntry(Base):
     __tablename__ = "backtest_entries"

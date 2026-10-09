@@ -5,10 +5,10 @@ from app.core.database import get_db
 from app.core.deps import get_current_trader
 from app.models.trader import Trader
 from app.models.backtest import Backtest
-from app.models.backtest_entry import BacktestEntry
+from app.models.backtest_entry import BacktestEntry, ResultType
 from app.schemas.backtest import (
     BacktestCreate, BacktestOut, BacktestDetail,
-    BacktestEntryCreate, BacktestEntryOut,
+    BacktestEntryCreate, BacktestEntryOut, NoTradeEntryCreate,
 )
 from app.services.backtest_calculations import calculate_summary
 
@@ -69,6 +69,35 @@ def add_entry(
 ):
     backtest = _get_owned_backtest(backtest_id, db, current_trader)
     entry = BacktestEntry(**data.model_dump(), backtest_id=backtest.id)
+    db.add(entry)
+    db.commit()
+    db.refresh(entry)
+    return entry
+
+
+@router.post("/{backtest_id}/no-trade-days", response_model=BacktestEntryOut, status_code=status.HTTP_201_CREATED)
+def add_no_trade_day(
+    backtest_id: UUID,
+    data: NoTradeEntryCreate,
+    db: Session = Depends(get_db),
+    current_trader: Trader = Depends(get_current_trader),
+):
+    """Registra un día en el que no se operó, con su motivo."""
+    backtest = _get_owned_backtest(backtest_id, db, current_trader)
+    already = db.query(BacktestEntry).filter(
+        BacktestEntry.backtest_id == backtest.id,
+        BacktestEntry.entry_date == data.entry_date,
+        BacktestEntry.result == ResultType.NO_TRADE,
+    ).first()
+    if already:
+        raise HTTPException(status_code=409, detail="Ese día ya está registrado como no operado")
+    entry = BacktestEntry(
+        backtest_id=backtest.id,
+        entry_date=data.entry_date,
+        result=ResultType.NO_TRADE,
+        percentage=0, amount=0, pips_ticks=0,
+        observations=data.reason.strip(),
+    )
     db.add(entry)
     db.commit()
     db.refresh(entry)
