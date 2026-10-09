@@ -30,6 +30,9 @@ class BacktestOut(BaseModel):
 
 class BacktestEntryCreate(BaseModel):
     entry_date: date
+    side: Literal["BUY", "SELL"]
+    open_price: Annotated[Decimal, Field(gt=0, max_digits=14, decimal_places=6)]
+    close_price: Annotated[Decimal, Field(gt=0, max_digits=14, decimal_places=6)]
     result: Literal["TP", "SL"]
     percentage: Annotated[Decimal, Field(max_digits=6, decimal_places=2)]
     amount: Annotated[Decimal, Field(max_digits=12, decimal_places=2)]
@@ -43,6 +46,9 @@ class NoTradeEntryCreate(BaseModel):
 class BacktestEntryOut(BaseModel):
     id: UUID
     entry_date: date
+    side: Optional[str] = None
+    open_price: Optional[float] = None
+    close_price: Optional[float] = None
     result: str
     percentage: float
     amount: float

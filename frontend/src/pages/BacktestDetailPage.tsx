@@ -13,6 +13,9 @@ export default function BacktestDetailPage() {
   const [loading, setLoading] = useState(true);
 
   const [entryDate, setEntryDate] = useState("");
+  const [side, setSide] = useState<"BUY" | "SELL">("BUY");
+  const [openPrice, setOpenPrice] = useState("");
+  const [closePrice, setClosePrice] = useState("");
   const [result, setResult] = useState<ResultType>("TP");
   const [percentage, setPercentage] = useState("");
   const [amount, setAmount] = useState("");
@@ -47,13 +50,16 @@ export default function BacktestDetailPage() {
       const sign = result === "SL" ? -1 : 1;
       await addBacktestEntry(id, {
         entry_date: entryDate,
+        side,
+        open_price: parseFloat(openPrice),
+        close_price: parseFloat(closePrice),
         result,
         percentage: Math.abs(parseFloat(percentage)) * sign,
         amount: Math.abs(parseFloat(amount)) * sign,
         pips_ticks: Math.abs(parseFloat(pipsTicks)) * sign,
         observations: observations || undefined,
       });
-      setEntryDate(""); setPercentage(""); setAmount(""); setPipsTicks(""); setObservations("");
+      setEntryDate(""); setOpenPrice(""); setClosePrice(""); setPercentage(""); setAmount(""); setPipsTicks(""); setObservations("");
       await loadDetail(id);
     } finally {
       setSaving(false);
@@ -87,10 +93,11 @@ export default function BacktestDetailPage() {
     const asset = detail.asset.replace(/[^A-Za-z0-9]+/g, "");
     downloadCsv(
       `backtest_${asset}_${detail.year}-${month}_${detail.timeframe}.csv`,
-      ["fecha", "activo", "temporalidad", "resultado", "porcentaje", "monto", "pips_ticks", "observaciones"],
+      ["fecha", "simbolo", "temporalidad", "lado", "precio_apertura", "precio_cierre", "resultado",
+        "porcentaje", "monto", "pips_ticks", "observaciones"],
       detail.entries.map((entry) => [
-        entry.entry_date, detail.asset, detail.timeframe, entry.result,
-        entry.percentage, entry.amount, entry.pips_ticks, entry.observations,
+        entry.entry_date, detail.asset, detail.timeframe, entry.side, entry.open_price, entry.close_price,
+        entry.result, entry.percentage, entry.amount, entry.pips_ticks, entry.observations,
       ])
     );
   }
@@ -113,6 +120,25 @@ export default function BacktestDetailPage() {
           <div className="field">
             <label>Fecha</label>
             <input type="date" value={entryDate} onChange={(e) => setEntryDate(e.target.value)} required />
+          </div>
+          <div className="field">
+            <label>Símbolo</label>
+            <input type="text" value={detail.asset} readOnly disabled />
+          </div>
+          <div className="field">
+            <label>Lado</label>
+            <select value={side} onChange={(e) => setSide(e.target.value as "BUY" | "SELL")}>
+              <option value="BUY">Compra</option>
+              <option value="SELL">Venta</option>
+            </select>
+          </div>
+          <div className="field">
+            <label>Precio apertura</label>
+            <input type="number" step="any" min="0" value={openPrice} onChange={(e) => setOpenPrice(e.target.value)} required />
+          </div>
+          <div className="field">
+            <label>Precio cierre</label>
+            <input type="number" step="any" min="0" value={closePrice} onChange={(e) => setClosePrice(e.target.value)} required />
           </div>
           <div className="field">
             <label>Resultado</label>
@@ -178,11 +204,12 @@ export default function BacktestDetailPage() {
         </form>
       )}
 
-      <div className="panel" style={{ padding: 0 }}>
+      <div className="panel" style={{ padding: 0, overflowX: "auto" }}>
         <table>
           <thead>
             <tr>
-              <th>Fecha</th><th>Resultado</th><th>%</th><th>Monto</th><th>Pips/Ticks</th><th>Observaciones</th>
+              <th>Fecha</th><th>Símbolo</th><th>Lado</th><th>Apertura</th><th>Cierre</th>
+              <th>Resultado</th><th>%</th><th>Monto</th><th>Pips/Ticks</th><th>Observaciones</th>
             </tr>
           </thead>
           <tbody>
@@ -190,6 +217,8 @@ export default function BacktestDetailPage() {
               entry.result === "NO_TRADE" ? (
                 <tr key={entry.id}>
                   <td>{entry.entry_date}</td>
+                  <td>{detail.asset}</td>
+                  <td>—</td><td>—</td><td>—</td>
                   <td><span className="result-badge result-none">No operado</span></td>
                   <td>—</td><td>—</td><td>—</td>
                   <td style={{ color: "var(--text-muted)" }}>{entry.observations}</td>
@@ -197,6 +226,10 @@ export default function BacktestDetailPage() {
               ) : (
                 <tr key={entry.id}>
                   <td>{entry.entry_date}</td>
+                  <td>{detail.asset}</td>
+                  <td>{entry.side === "BUY" ? "Compra" : entry.side === "SELL" ? "Venta" : "—"}</td>
+                  <td>{entry.open_price ?? "—"}</td>
+                  <td>{entry.close_price ?? "—"}</td>
                   <td><span className={`result-badge ${entry.result === "TP" ? "result-tp" : "result-sl"}`}>{entry.result}</span></td>
                   <td className={fmt(entry.percentage)}>{entry.percentage}%</td>
                   <td className={fmt(entry.amount)}>{entry.amount}</td>

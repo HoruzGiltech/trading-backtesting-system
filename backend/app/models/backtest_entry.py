@@ -16,6 +16,11 @@ class BacktestEntry(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     backtest_id = Column(UUID(as_uuid=True), ForeignKey("backtests.id"), nullable=False)
     entry_date = Column(Date, nullable=False)
+    # El símbolo no se guarda aquí: es el asset del backtest (cabecera)
+    # side y precios quedan en NULL en los días sin operar y en filas antiguas
+    side = Column(String, nullable=True)                 # "BUY" | "SELL"
+    open_price = Column(Numeric(14, 6), nullable=True)
+    close_price = Column(Numeric(14, 6), nullable=True)
     result = Column(SQLEnum(ResultType), nullable=False)
     percentage = Column(Numeric(6, 2), nullable=False)   # % ganado o perdido (con signo)
     amount = Column(Numeric(12, 2), nullable=False)       # monto en dinero (con signo)

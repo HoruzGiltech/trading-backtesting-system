@@ -27,6 +27,9 @@ export async function addBacktestEntry(
   backtestId: string,
   data: {
     entry_date: string;
+    side: "BUY" | "SELL";
+    open_price: number;
+    close_price: number;
     result: "TP" | "SL";
     percentage: number;
     amount: number;

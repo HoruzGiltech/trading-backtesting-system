@@ -30,3 +30,8 @@ alembic upgrade head
   (`{entry_date, reason}`). Un día sin operar por fecha; no cuenta en las métricas del resumen.
 - Frontend: botones **+ Día sin operar** y **Descargar CSV** en Diario y en el detalle de backtest
   (el CSV se genera en el navegador, separado por comas y en UTF-8).
+
+## Lado y precios en los días de backtest
+
+- Migración `c9f5a3b4d6e7`: agrega `side`, `open_price` y `close_price` a `backtest_entries` (NULL en filas
+  antiguas y en días sin operar). El símbolo no se guarda por fila: es el `asset` del backtest.
