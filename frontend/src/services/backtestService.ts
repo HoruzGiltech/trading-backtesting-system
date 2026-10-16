@@ -62,3 +62,7 @@ export async function updateBacktest(id: string, data: { name: string }): Promis
   const response = await api.patch<Backtest>(`/backtests/${id}`, data);
   return response.data;
 }
+
+export async function deleteBacktest(id: string): Promise<void> {
+  await api.delete(`/backtests/${id}`);
+}

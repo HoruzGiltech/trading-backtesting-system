@@ -1,12 +1,13 @@
 import type { FormEvent } from "react";
 import { useEffect, useState } from "react";
-import { Link, useLocation, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { isAxiosError } from "axios";
 import { CsvFilePicker } from "../components/CsvFilePicker";
+import { ConfirmDeleteButton } from "../components/ConfirmDeleteButton";
 import { CsvPreviewNote } from "../components/CsvPreviewNote";
 import { Layout } from "../components/Layout";
 import {
-  addBacktestEntry, addNoTradeDay, getBacktestDetail, importBacktestEntries, updateBacktest,
+  addBacktestEntry, addNoTradeDay, deleteBacktest, getBacktestDetail, importBacktestEntries, updateBacktest,
 } from "../services/backtestService";
 import { downloadCsv } from "../services/csvExport";
 import type { CsvImportPreview } from "../services/csvImport";
@@ -16,6 +17,7 @@ import type { BacktestDetail, ResultType } from "../types/backtest";
 export default function BacktestDetailPage() {
   const { id } = useParams<{ id: string }>();
   const location = useLocation();
+  const navigate = useNavigate();
   const [detail, setDetail] = useState<BacktestDetail | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -200,6 +202,14 @@ export default function BacktestDetailPage() {
         <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
           <h1>{detail.name}</h1>
           <button className="btn" onClick={startEditName}>Editar nombre</button>
+          <ConfirmDeleteButton
+            label="Eliminar backtest"
+            question={`¿Eliminar este backtest y sus ${detail.entries.length} días registrados?`}
+            onConfirm={async () => {
+              await deleteBacktest(detail.id);
+              navigate("/backtests");
+            }}
+          />
         </div>
       )}
       {nameError && <p className="error-text">{nameError}</p>}
