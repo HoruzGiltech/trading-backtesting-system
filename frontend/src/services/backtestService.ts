@@ -1,7 +1,8 @@
-import type { Backtest, BacktestDetail } from "../types/backtest";
+import type { Backtest, BacktestDetail, BacktestImportResult, BacktestImportRow } from "../types/backtest";
 import api from "./api";
 
 export async function createBacktest(data: {
+  name: string;
   month: number;
   year: number;
   asset: string;
@@ -46,5 +47,13 @@ export async function addNoTradeDay(backtestId: string, entryDate: string, reaso
     entry_date: entryDate,
     reason,
   });
+  return response.data;
+}
+
+export async function importBacktestEntries(
+  backtestId: string,
+  entries: BacktestImportRow[]
+): Promise<BacktestImportResult> {
+  const response = await api.post<BacktestImportResult>(`/backtests/${backtestId}/import`, { entries });
   return response.data;
 }

@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from typing import Annotated, Optional, Literal
 from decimal import Decimal
 from uuid import UUID
@@ -7,6 +7,7 @@ from datetime import date
 # --- Backtest (cabecera) ---
 
 class BacktestCreate(BaseModel):
+    name: Annotated[str, Field(min_length=1, max_length=120)]
     month: int
     year: int
     asset: str
@@ -16,6 +17,7 @@ class BacktestCreate(BaseModel):
 
 class BacktestOut(BaseModel):
     id: UUID
+    name: str
     month: int
     year: int
     asset: str
@@ -42,6 +44,31 @@ class BacktestEntryCreate(BaseModel):
 class NoTradeEntryCreate(BaseModel):
     entry_date: date
     reason: Annotated[str, Field(min_length=1, max_length=500)]
+
+class BacktestEntryImport(BaseModel):
+    """Fila de un CSV importado. En los CSV antiguos no hay lado ni precios, por eso son opcionales."""
+    entry_date: date
+    result: Literal["TP", "SL", "NO_TRADE"]
+    side: Optional[Literal["BUY", "SELL"]] = None
+    open_price: Optional[Annotated[Decimal, Field(gt=0, max_digits=14, decimal_places=6)]] = None
+    close_price: Optional[Annotated[Decimal, Field(gt=0, max_digits=14, decimal_places=6)]] = None
+    percentage: Annotated[Decimal, Field(max_digits=6, decimal_places=2)] = Decimal(0)
+    amount: Annotated[Decimal, Field(max_digits=12, decimal_places=2)] = Decimal(0)
+    pips_ticks: Annotated[Decimal, Field(max_digits=10, decimal_places=2)] = Decimal(0)
+    observations: Optional[str] = None
+
+    @model_validator(mode="after")
+    def no_trade_has_reason(self):
+        if self.result == "NO_TRADE" and not (self.observations or "").strip():
+            raise ValueError("Los días sin operar necesitan un motivo en observaciones")
+        return self
+
+class BacktestImport(BaseModel):
+    entries: Annotated[list[BacktestEntryImport], Field(min_length=1, max_length=1000)]
+
+class BacktestImportResult(BaseModel):
+    imported: int
+    skipped: int             # días sin operar que ya estaban registrados
 
 class BacktestEntryOut(BaseModel):
     id: UUID

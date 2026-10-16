@@ -1,5 +1,6 @@
 export interface Backtest {
   id: string;
+  name: string;
   month: number;
   year: number;
   asset: string;
@@ -45,4 +46,21 @@ export interface BacktestSummary {
 export interface BacktestDetail extends Backtest {
   entries: BacktestEntry[];
   summary: BacktestSummary;
+}
+// Fila leída de un CSV para importar en bloque
+export interface BacktestImportRow {
+  entry_date: string;
+  result: EntryResult;
+  side?: "BUY" | "SELL";
+  open_price?: number;
+  close_price?: number;
+  percentage: number;
+  amount: number;
+  pips_ticks: number;
+  observations?: string;
+}
+
+export interface BacktestImportResult {
+  imported: number;
+  skipped: number;
 }
