@@ -66,3 +66,24 @@ export async function updateBacktest(id: string, data: { name: string }): Promis
 export async function deleteBacktest(id: string): Promise<void> {
   await api.delete(`/backtests/${id}`);
 }
+
+export async function updateBacktestEntry(
+  backtestId: string,
+  entryId: string,
+  data: Parameters<typeof addBacktestEntry>[1]
+) {
+  const response = await api.put(`/backtests/${backtestId}/entries/${entryId}`, data);
+  return response.data;
+}
+
+export async function updateNoTradeDay(backtestId: string, entryId: string, entryDate: string, reason: string) {
+  const response = await api.put(`/backtests/${backtestId}/no-trade-days/${entryId}`, {
+    entry_date: entryDate,
+    reason,
+  });
+  return response.data;
+}
+
+export async function deleteBacktestEntry(backtestId: string, entryId: string): Promise<void> {
+  await api.delete(`/backtests/${backtestId}/entries/${entryId}`);
+}
