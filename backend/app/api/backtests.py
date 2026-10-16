@@ -9,7 +9,7 @@ from app.models.backtest_entry import BacktestEntry, ResultType
 from app.schemas.backtest import (
     BacktestCreate, BacktestOut, BacktestDetail,
     BacktestEntryCreate, BacktestEntryOut, NoTradeEntryCreate,
-    BacktestImport, BacktestImportResult,
+    BacktestImport, BacktestImportResult, BacktestUpdate,
 )
 from app.services.backtest_calculations import calculate_summary
 
@@ -140,8 +140,13 @@ def import_entries(
                 observations=row.observations.strip(),
             )
         else:
-            # El signo lo decide el resultado, como en el formulario manual
-            sign = 1 if row.result == "TP" else -1
+            # En TP/SL el signo lo decide el resultado, como en el formulario manual;
+            # en BE se respeta el del archivo (pequeño +/- por spread o comisión)
+            def signed(value):
+                if row.result == "BE":
+                    return value
+                return abs(value) if row.result == "TP" else -abs(value)
+
             entry = BacktestEntry(
                 backtest_id=backtest.id,
                 entry_date=row.entry_date,
@@ -149,12 +154,30 @@ def import_entries(
                 open_price=row.open_price,
                 close_price=row.close_price,
                 result=ResultType(row.result),
-                percentage=abs(row.percentage) * sign,
-                amount=abs(row.amount) * sign,
-                pips_ticks=abs(row.pips_ticks) * sign,
+                percentage=signed(row.percentage),
+                amount=signed(row.amount),
+                pips_ticks=signed(row.pips_ticks),
                 observations=(row.observations or "").strip() or None,
             )
         db.add(entry)
         imported += 1
     db.commit()
     return BacktestImportResult(imported=imported, skipped=skipped)
+
+
+@router.patch("/{backtest_id}", response_model=BacktestOut)
+def update_backtest(
+    backtest_id: UUID,
+    data: BacktestUpdate,
+    db: Session = Depends(get_db),
+    current_trader: Trader = Depends(get_current_trader),
+):
+    """Cambia el nombre identificativo del backtest."""
+    backtest = _get_owned_backtest(backtest_id, db, current_trader)
+    name = data.name.strip()
+    if not name:
+        raise HTTPException(status_code=422, detail="El nombre no puede estar vacío")
+    backtest.name = name
+    db.commit()
+    db.refresh(backtest)
+    return backtest

@@ -31,7 +31,7 @@ export async function addBacktestEntry(
     side: "BUY" | "SELL";
     open_price: number;
     close_price: number;
-    result: "TP" | "SL";
+    result: "TP" | "SL" | "BE";
     percentage: number;
     amount: number;
     pips_ticks: number;
@@ -55,5 +55,10 @@ export async function importBacktestEntries(
   entries: BacktestImportRow[]
 ): Promise<BacktestImportResult> {
   const response = await api.post<BacktestImportResult>(`/backtests/${backtestId}/import`, { entries });
+  return response.data;
+}
+
+export async function updateBacktest(id: string, data: { name: string }): Promise<Backtest> {
+  const response = await api.patch<Backtest>(`/backtests/${id}`, data);
   return response.data;
 }

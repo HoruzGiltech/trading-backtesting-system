@@ -1,10 +1,13 @@
-import type { ChangeEvent, FormEvent } from "react";
+import type { FormEvent } from "react";
 import { useEffect, useState } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
 import { isAxiosError } from "axios";
+import { CsvFilePicker } from "../components/CsvFilePicker";
 import { CsvPreviewNote } from "../components/CsvPreviewNote";
 import { Layout } from "../components/Layout";
-import { addBacktestEntry, addNoTradeDay, getBacktestDetail, importBacktestEntries } from "../services/backtestService";
+import {
+  addBacktestEntry, addNoTradeDay, getBacktestDetail, importBacktestEntries, updateBacktest,
+} from "../services/backtestService";
 import { downloadCsv } from "../services/csvExport";
 import type { CsvImportPreview } from "../services/csvImport";
 import { readBacktestCsv } from "../services/csvImport";
@@ -15,6 +18,11 @@ export default function BacktestDetailPage() {
   const location = useLocation();
   const [detail, setDetail] = useState<BacktestDetail | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const [editingName, setEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState("");
+  const [nameError, setNameError] = useState<string | null>(null);
+  const [savingName, setSavingName] = useState(false);
 
   // Si se creó desde la lista con un CSV y la importación falló, se avisa aquí
   const [showImport, setShowImport] = useState(Boolean(location.state?.importFailed));
@@ -59,16 +67,21 @@ export default function BacktestDetailPage() {
     if (!id) return;
     setSaving(true);
     try {
-      const sign = result === "SL" ? -1 : 1;
+      // En TP/SL el signo lo pone el resultado; en BE se respeta lo escrito (+/- por spread o comisión)
+      const signed = (raw: string) => {
+        const value = parseFloat(raw);
+        if (result === "BE") return value;
+        return Math.abs(value) * (result === "SL" ? -1 : 1);
+      };
       await addBacktestEntry(id, {
         entry_date: entryDate,
         side,
         open_price: parseFloat(openPrice),
         close_price: parseFloat(closePrice),
         result,
-        percentage: Math.abs(parseFloat(percentage)) * sign,
-        amount: Math.abs(parseFloat(amount)) * sign,
-        pips_ticks: Math.abs(parseFloat(pipsTicks)) * sign,
+        percentage: signed(percentage),
+        amount: signed(amount),
+        pips_ticks: signed(pipsTicks),
         observations: observations || undefined,
       });
       setEntryDate(""); setOpenPrice(""); setClosePrice(""); setPercentage(""); setAmount(""); setPipsTicks(""); setObservations("");
@@ -99,10 +112,32 @@ export default function BacktestDetailPage() {
     }
   }
 
-  async function handleImportFile(e: ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
+  async function handleImportFile(file: File) {
     setImportMessage(null);
-    setImportPreview(file ? await readBacktestCsv(file) : null);
+    setImportPreview(await readBacktestCsv(file));
+  }
+
+  function startEditName() {
+    if (!detail) return;
+    setNameDraft(detail.name);
+    setNameError(null);
+    setEditingName(true);
+  }
+
+  async function handleSaveName(e: FormEvent) {
+    e.preventDefault();
+    if (!id || !detail) return;
+    setSavingName(true);
+    setNameError(null);
+    try {
+      const updated = await updateBacktest(id, { name: nameDraft.trim() });
+      setDetail({ ...detail, name: updated.name });
+      setEditingName(false);
+    } catch {
+      setNameError("No se pudo guardar el nombre. Inténtalo de nuevo.");
+    } finally {
+      setSavingName(false);
+    }
   }
 
   async function handleImport() {
@@ -147,7 +182,27 @@ export default function BacktestDetailPage() {
   return (
     <Layout>
       <Link to="/backtests">← Volver</Link>
-      <h1>{detail.name}</h1>
+      {editingName ? (
+        <form onSubmit={handleSaveName} style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", margin: "16px 0 8px" }}>
+          <div className="field" style={{ flex: "1 1 280px", marginBottom: 0 }}>
+            <input
+              type="text" value={nameDraft} maxLength={120} required autoFocus aria-label="Nombre del backtest"
+              onChange={(e) => setNameDraft(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Escape") setEditingName(false); }}
+            />
+          </div>
+          <button type="submit" className="btn btn-primary" disabled={savingName || !nameDraft.trim()}>
+            {savingName ? "Guardando..." : "Guardar"}
+          </button>
+          <button type="button" className="btn" onClick={() => setEditingName(false)}>Cancelar</button>
+        </form>
+      ) : (
+        <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+          <h1>{detail.name}</h1>
+          <button className="btn" onClick={startEditName}>Editar nombre</button>
+        </div>
+      )}
+      {nameError && <p className="error-text">{nameError}</p>}
       <p>{detail.asset} · {detail.month}/{detail.year} · {detail.timeframe} · Lotaje: {detail.lot_size} · Cuenta: {detail.account_size}</p>
 
       <h2>Agregar día</h2>
@@ -181,6 +236,7 @@ export default function BacktestDetailPage() {
             <select value={result} onChange={(e) => setResult(e.target.value as ResultType)}>
               <option value="TP">TP (Win)</option>
               <option value="SL">SL (Lost)</option>
+              <option value="BE">BE (Breakeven)</option>
             </select>
           </div>
           <div className="field">
@@ -222,23 +278,32 @@ export default function BacktestDetailPage() {
 
       {showImport && (
         <div className="panel">
-          <p style={{ marginTop: 0, color: "var(--text-muted)", fontSize: 14 }}>
-            Columnas mínimas: <code>fecha</code> y <code>resultado</code> (TP, SL o NO_TRADE). Opcionales: lado/direccion,
-            precio_apertura/precio_entrada, precio_cierre/precio_salida, porcentaje, monto, pips, observaciones.
-            Acepta el CSV que descarga esta misma página.
-          </p>
-          <input type="file" accept=".csv,text/csv" onChange={handleImportFile} />
+          <div className="form-row" style={{ gridTemplateColumns: "minmax(0, 1fr) auto" }}>
+            <div className="field" style={{ marginBottom: 0 }}>
+              <label>Archivo CSV</label>
+              <CsvFilePicker
+                fileName={importPreview?.fileName}
+                onFile={handleImportFile}
+                onClear={() => { setImportPreview(null); setImportMessage(null); }}
+              />
+            </div>
+            <button
+              className="btn btn-primary" onClick={handleImport}
+              disabled={importing || !importPreview || importPreview.entries.length === 0}
+            >
+              {importing ? "Importando..." : `Importar ${importPreview?.entries.length ?? 0} días`}
+            </button>
+          </div>
           {importPreview && <CsvPreviewNote preview={importPreview} />}
           {importPreview && importPreview.errors.length > 0 && importPreview.entries.length > 0 && (
             <p style={{ fontSize: 14, margin: "4px 0 0" }}>Las filas con error no se importarán.</p>
           )}
           {importMessage && <p style={{ margin: "8px 0 0" }}>{importMessage}</p>}
-          <button
-            className="btn btn-primary" style={{ marginTop: 8 }} onClick={handleImport}
-            disabled={importing || !importPreview || importPreview.entries.length === 0}
-          >
-            {importing ? "Importando..." : `Importar ${importPreview?.entries.length ?? 0} días`}
-          </button>
+          <p style={{ margin: "12px 0 0", fontSize: 12 }}>
+            Columnas mínimas: <code>fecha</code> y <code>resultado</code> (TP, SL, BE o NO_TRADE). Opcionales: lado/direccion,
+            precio_apertura/precio_entrada, precio_cierre/precio_salida, porcentaje, monto, pips, observaciones.
+            Acepta el CSV que descarga esta misma página.
+          </p>
         </div>
       )}
 
@@ -291,7 +356,7 @@ export default function BacktestDetailPage() {
                   <td>{entry.side === "BUY" ? "Compra" : entry.side === "SELL" ? "Venta" : "—"}</td>
                   <td>{entry.open_price ?? "—"}</td>
                   <td>{entry.close_price ?? "—"}</td>
-                  <td><span className={`result-badge ${entry.result === "TP" ? "result-tp" : "result-sl"}`}>{entry.result}</span></td>
+                  <td><span className={`result-badge ${entry.result === "TP" ? "result-tp" : entry.result === "BE" ? "result-be" : "result-sl"}`}>{entry.result}</span></td>
                   <td className={fmt(entry.percentage)}>{entry.percentage}%</td>
                   <td className={fmt(entry.amount)}>{entry.amount}</td>
                   <td className={fmt(entry.pips_ticks)}>{entry.pips_ticks}</td>
@@ -309,6 +374,7 @@ export default function BacktestDetailPage() {
         <div className="summary-cell"><div className="label">Días sin operar</div><div className="value">{summary.no_trade_count}</div></div>
         <div className="summary-cell"><div className="label">Trades TP</div><div className="value" style={{ color: "var(--win)" }}>{summary.tp_count}</div></div>
         <div className="summary-cell"><div className="label">Trades SL</div><div className="value" style={{ color: "var(--loss)" }}>{summary.sl_count}</div></div>
+        <div className="summary-cell"><div className="label">Trades BE</div><div className="value" style={{ color: "var(--accent)" }}>{summary.be_count}</div></div>
         <div className="summary-cell"><div className="label">Beneficio</div><div className="value num-positive">{summary.profit_amount}</div></div>
         <div className="summary-cell"><div className="label">Pérdidas</div><div className="value num-negative">{summary.loss_amount}</div></div>
         <div className="summary-cell"><div className="label">Ganancia neta</div><div className={`value ${fmt(summary.net_profit)}`}>{summary.net_profit}</div></div>

@@ -2,9 +2,10 @@ import type { BacktestImportRow } from "../types/backtest";
 
 // Nombres de columna aceptados. Cubre el export de la app, el export antiguo
 // (activo/pips_ticks sin precios) y el CSV del registro de TradingView
-// (direccion/precio_entrada/precio_salida/pips/observacion).
+// (direccion/precio_entrada/precio_salida/pips/observacion) y el export del
+// diario de operaciones (fecha_cierre con hora, WIN/LOSS).
 const COLUMN_ALIASES: Record<string, string[]> = {
-  date: ["fecha", "date", "entry_date", "dia"],
+  date: ["fecha", "date", "entry_date", "dia", "fecha_cierre", "fecha_apertura", "closed_at", "opened_at"],
   asset: ["simbolo", "activo", "symbol", "asset", "par"],
   timeframe: ["temporalidad", "timeframe", "tf"],
   side: ["lado", "direccion", "side", "direction", "tipo"],
@@ -20,6 +21,7 @@ const COLUMN_ALIASES: Record<string, string[]> = {
 export interface CsvImportPreview {
   entries: BacktestImportRow[];
   errors: string[];
+  fileName?: string;
   // Datos de cabecera deducidos del archivo, para rellenar el formulario de nuevo backtest
   asset?: string;
   timeframe?: string;
@@ -84,6 +86,7 @@ function parseResult(raw: string | undefined): BacktestImportRow["result"] | nul
   const value = normalize(raw ?? "");
   if (["tp", "win", "ganada", "ganancia", "w"].includes(value)) return "TP";
   if (["sl", "loss", "lost", "perdida", "l"].includes(value)) return "SL";
+  if (["be", "breakeven", "break_even"].includes(value)) return "BE";
   if (["no_trade", "no_operado", "sin_operar", "no_opere", "nt"].includes(value)) return "NO_TRADE";
   return null;
 }
@@ -120,7 +123,7 @@ export function parseBacktestCsv(text: string): CsvImportPreview {
     const entryDate = parseDate(get(row, "date") ?? "");
     if (!entryDate) rowErrors.push(`fecha inválida "${get(row, "date") ?? ""}"`);
     const result = parseResult(get(row, "result"));
-    if (!result) rowErrors.push(`resultado "${get(row, "result") ?? ""}" no reconocido (usa TP, SL o NO_TRADE)`);
+    if (!result) rowErrors.push(`resultado "${get(row, "result") ?? ""}" no reconocido (usa TP, SL, BE o NO_TRADE)`);
     const side = parseSide(get(row, "side"));
     if (side === null) rowErrors.push(`lado "${get(row, "side")}" no reconocido (usa compra/venta)`);
 
@@ -168,5 +171,5 @@ export function parseBacktestCsv(text: string): CsvImportPreview {
 }
 
 export async function readBacktestCsv(file: File): Promise<CsvImportPreview> {
-  return parseBacktestCsv(await file.text());
+  return { ...parseBacktestCsv(await file.text()), fileName: file.name };
 }

@@ -7,7 +7,7 @@ export function CsvPreviewNote({ preview }: { preview: CsvImportPreview }) {
     <div style={{ marginTop: 8, fontSize: 14 }}>
       <p style={{ margin: 0 }}>
         {preview.entries.length} filas listas para importar
-        {preview.entries.length > 0 && ` (${count("TP")} TP, ${count("SL")} SL, ${count("NO_TRADE")} sin operar)`}
+        {preview.entries.length > 0 && ` (${count("TP")} TP, ${count("SL")} SL${count("BE") ? `, ${count("BE")} BE` : ""}, ${count("NO_TRADE")} sin operar)`}
       </p>
       {preview.errors.length > 0 && (
         <ul style={{ color: "var(--loss)", margin: "4px 0 0", paddingLeft: 18 }}>
