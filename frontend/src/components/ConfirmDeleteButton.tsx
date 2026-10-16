@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { isAxiosError } from "axios";
 
 interface Props {
   label: string;
@@ -10,15 +11,17 @@ interface Props {
 export function ConfirmDeleteButton({ label, question, onConfirm }: Props) {
   const [asking, setAsking] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [error, setError] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function handleConfirm() {
     setDeleting(true);
-    setError(false);
+    setError(null);
     try {
       await onConfirm();
-    } catch {
-      setError(true);
+    } catch (err) {
+      // El código HTTP ayuda a distinguir backend sin desplegar (404/405), sesión (401) o fallo del servidor (500)
+      const status = isAxiosError(err) ? err.response?.status : undefined;
+      setError(status ? `No se pudo eliminar (error ${status}). ¿Reintentar?` : "No se pudo eliminar (sin respuesta del servidor). ¿Reintentar?");
       setDeleting(false);
     }
   }
@@ -30,12 +33,12 @@ export function ConfirmDeleteButton({ label, question, onConfirm }: Props) {
   return (
     <span style={{ display: "inline-flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
       <span style={{ fontSize: 13, color: error ? "var(--loss)" : "var(--text-muted)" }}>
-        {error ? "No se pudo eliminar. ¿Reintentar?" : question}
+        {error ?? question}
       </span>
       <button type="button" className="btn btn-danger-solid" onClick={handleConfirm} disabled={deleting}>
         {deleting ? "Eliminando..." : "Sí, eliminar"}
       </button>
-      <button type="button" className="btn" onClick={() => { setAsking(false); setError(false); }} disabled={deleting}>
+      <button type="button" className="btn" onClick={() => { setAsking(false); setError(null); }} disabled={deleting}>
         Cancelar
       </button>
     </span>
