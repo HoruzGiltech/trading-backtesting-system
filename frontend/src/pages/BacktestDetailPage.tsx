@@ -1,16 +1,28 @@
-import type { FormEvent } from "react";
+import type { ChangeEvent, FormEvent } from "react";
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useLocation, useParams } from "react-router-dom";
 import { isAxiosError } from "axios";
+import { CsvPreviewNote } from "../components/CsvPreviewNote";
 import { Layout } from "../components/Layout";
-import { addBacktestEntry, addNoTradeDay, getBacktestDetail } from "../services/backtestService";
+import { addBacktestEntry, addNoTradeDay, getBacktestDetail, importBacktestEntries } from "../services/backtestService";
 import { downloadCsv } from "../services/csvExport";
+import type { CsvImportPreview } from "../services/csvImport";
+import { readBacktestCsv } from "../services/csvImport";
 import type { BacktestDetail, ResultType } from "../types/backtest";
 
 export default function BacktestDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const location = useLocation();
   const [detail, setDetail] = useState<BacktestDetail | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Si se creó desde la lista con un CSV y la importación falló, se avisa aquí
+  const [showImport, setShowImport] = useState(Boolean(location.state?.importFailed));
+  const [importPreview, setImportPreview] = useState<CsvImportPreview | null>(null);
+  const [importMessage, setImportMessage] = useState<string | null>(
+    location.state?.importFailed ? "El backtest se creó, pero no se pudieron importar los días del CSV. Vuelve a subirlo." : null
+  );
+  const [importing, setImporting] = useState(false);
 
   const [entryDate, setEntryDate] = useState("");
   const [side, setSide] = useState<"BUY" | "SELL">("BUY");
@@ -87,12 +99,36 @@ export default function BacktestDetailPage() {
     }
   }
 
+  async function handleImportFile(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    setImportMessage(null);
+    setImportPreview(file ? await readBacktestCsv(file) : null);
+  }
+
+  async function handleImport() {
+    if (!id || !importPreview || importPreview.entries.length === 0) return;
+    setImporting(true);
+    setImportMessage(null);
+    try {
+      const { imported, skipped } = await importBacktestEntries(id, importPreview.entries);
+      setImportMessage(
+        `Importados ${imported} días` + (skipped > 0 ? ` (${skipped} días sin operar ya estaban registrados y se omitieron).` : ".")
+      );
+      setImportPreview(null);
+      await loadDetail(id);
+    } catch {
+      setImportMessage("No se pudo importar el CSV. No se guardó ninguna fila; revisa el archivo e inténtalo de nuevo.");
+    } finally {
+      setImporting(false);
+    }
+  }
+
   function handleExportCsv() {
     if (!detail) return;
     const month = String(detail.month).padStart(2, "0");
-    const asset = detail.asset.replace(/[^A-Za-z0-9]+/g, "");
+    const slug = (text: string) => text.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "");
     downloadCsv(
-      `backtest_${asset}_${detail.year}-${month}_${detail.timeframe}.csv`,
+      `backtest_${slug(detail.name)}_${slug(detail.asset)}_${detail.year}-${month}_${detail.timeframe}.csv`,
       ["fecha", "simbolo", "temporalidad", "lado", "precio_apertura", "precio_cierre", "resultado",
         "porcentaje", "monto", "pips_ticks", "observaciones"],
       detail.entries.map((entry) => [
@@ -111,8 +147,8 @@ export default function BacktestDetailPage() {
   return (
     <Layout>
       <Link to="/backtests">← Volver</Link>
-      <h1>{detail.asset} — {detail.month}/{detail.year} ({detail.timeframe})</h1>
-      <p>Lotaje: {detail.lot_size} · Cuenta: {detail.account_size}</p>
+      <h1>{detail.name}</h1>
+      <p>{detail.asset} · {detail.month}/{detail.year} · {detail.timeframe} · Lotaje: {detail.lot_size} · Cuenta: {detail.account_size}</p>
 
       <h2>Agregar día</h2>
       <form className="panel" onSubmit={handleAddEntry}>
@@ -175,11 +211,36 @@ export default function BacktestDetailPage() {
           <button className="btn" onClick={() => { setShowNoTrade(!showNoTrade); setNoTradeError(null); }}>
             {showNoTrade ? "Cancelar" : "+ Día sin operar"}
           </button>
+          <button className="btn" onClick={() => { setShowImport(!showImport); setImportPreview(null); setImportMessage(null); }}>
+            {showImport ? "Cerrar importación" : "Importar CSV"}
+          </button>
           <button className="btn" onClick={handleExportCsv} disabled={detail.entries.length === 0}>
             Descargar CSV
           </button>
         </div>
       </div>
+
+      {showImport && (
+        <div className="panel">
+          <p style={{ marginTop: 0, color: "var(--text-muted)", fontSize: 14 }}>
+            Columnas mínimas: <code>fecha</code> y <code>resultado</code> (TP, SL o NO_TRADE). Opcionales: lado/direccion,
+            precio_apertura/precio_entrada, precio_cierre/precio_salida, porcentaje, monto, pips, observaciones.
+            Acepta el CSV que descarga esta misma página.
+          </p>
+          <input type="file" accept=".csv,text/csv" onChange={handleImportFile} />
+          {importPreview && <CsvPreviewNote preview={importPreview} />}
+          {importPreview && importPreview.errors.length > 0 && importPreview.entries.length > 0 && (
+            <p style={{ fontSize: 14, margin: "4px 0 0" }}>Las filas con error no se importarán.</p>
+          )}
+          {importMessage && <p style={{ margin: "8px 0 0" }}>{importMessage}</p>}
+          <button
+            className="btn btn-primary" style={{ marginTop: 8 }} onClick={handleImport}
+            disabled={importing || !importPreview || importPreview.entries.length === 0}
+          >
+            {importing ? "Importando..." : `Importar ${importPreview?.entries.length ?? 0} días`}
+          </button>
+        </div>
+      )}
 
       {showNoTrade && (
         <form className="panel" onSubmit={handleAddNoTrade}>

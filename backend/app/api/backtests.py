@@ -9,6 +9,7 @@ from app.models.backtest_entry import BacktestEntry, ResultType
 from app.schemas.backtest import (
     BacktestCreate, BacktestOut, BacktestDetail,
     BacktestEntryCreate, BacktestEntryOut, NoTradeEntryCreate,
+    BacktestImport, BacktestImportResult,
 )
 from app.services.backtest_calculations import calculate_summary
 
@@ -21,7 +22,7 @@ def create_backtest(
     db: Session = Depends(get_db),
     current_trader: Trader = Depends(get_current_trader),
 ):
-    backtest = Backtest(**data.model_dump(), trader_id=current_trader.id)
+    backtest = Backtest(**data.model_dump(exclude={"name"}), name=data.name.strip(), trader_id=current_trader.id)
     db.add(backtest)
     db.commit()
     db.refresh(backtest)
@@ -33,7 +34,12 @@ def list_backtests(
     db: Session = Depends(get_db),
     current_trader: Trader = Depends(get_current_trader),
 ):
-    return db.query(Backtest).filter(Backtest.trader_id == current_trader.id).all()
+    return (
+        db.query(Backtest)
+        .filter(Backtest.trader_id == current_trader.id)
+        .order_by(Backtest.created_at.desc())
+        .all()
+    )
 
 
 def _get_owned_backtest(backtest_id: UUID, db: Session, current_trader: Trader) -> Backtest:
@@ -102,3 +108,53 @@ def add_no_trade_day(
     db.commit()
     db.refresh(entry)
     return entry
+
+
+@router.post("/{backtest_id}/import", response_model=BacktestImportResult, status_code=status.HTTP_201_CREATED)
+def import_entries(
+    backtest_id: UUID,
+    data: BacktestImport,
+    db: Session = Depends(get_db),
+    current_trader: Trader = Depends(get_current_trader),
+):
+    """Registra de una vez las filas de un CSV. Todo o nada: si una fila es inválida no se guarda ninguna."""
+    backtest = _get_owned_backtest(backtest_id, db, current_trader)
+    no_trade_dates = {
+        d for (d,) in db.query(BacktestEntry.entry_date).filter(
+            BacktestEntry.backtest_id == backtest.id,
+            BacktestEntry.result == ResultType.NO_TRADE,
+        )
+    }
+    imported = skipped = 0
+    for row in data.entries:
+        if row.result == "NO_TRADE":
+            if row.entry_date in no_trade_dates:
+                skipped += 1
+                continue
+            no_trade_dates.add(row.entry_date)
+            entry = BacktestEntry(
+                backtest_id=backtest.id,
+                entry_date=row.entry_date,
+                result=ResultType.NO_TRADE,
+                percentage=0, amount=0, pips_ticks=0,
+                observations=row.observations.strip(),
+            )
+        else:
+            # El signo lo decide el resultado, como en el formulario manual
+            sign = 1 if row.result == "TP" else -1
+            entry = BacktestEntry(
+                backtest_id=backtest.id,
+                entry_date=row.entry_date,
+                side=row.side,
+                open_price=row.open_price,
+                close_price=row.close_price,
+                result=ResultType(row.result),
+                percentage=abs(row.percentage) * sign,
+                amount=abs(row.amount) * sign,
+                pips_ticks=abs(row.pips_ticks) * sign,
+                observations=(row.observations or "").strip() or None,
+            )
+        db.add(entry)
+        imported += 1
+    db.commit()
+    return BacktestImportResult(imported=imported, skipped=skipped)
