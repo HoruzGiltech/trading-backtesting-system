@@ -4,7 +4,8 @@ import { useNavigate } from "react-router-dom";
 import { CsvFilePicker } from "../components/CsvFilePicker";
 import { CsvPreviewNote } from "../components/CsvPreviewNote";
 import { Layout } from "../components/Layout";
-import { createBacktest, importBacktestEntries, listBacktests } from "../services/backtestService";
+import { ConfirmDeleteButton } from "../components/ConfirmDeleteButton";
+import { createBacktest, deleteBacktest, importBacktestEntries, listBacktests } from "../services/backtestService";
 import type { CsvImportPreview } from "../services/csvImport";
 import { readBacktestCsv } from "../services/csvImport";
 import type { Backtest } from "../types/backtest";
@@ -95,7 +96,7 @@ export default function BacktestListPage() {
       {showForm && (
         <form className="panel" onSubmit={handleCreate}>
           <div className="form-row">
-            <div className="field" style={{ flex: "2 1 260px" }}>
+            <div className="field field-wide">
               <label>Nombre</label>
               <input
                 type="text" maxLength={120} required value={name}
@@ -127,7 +128,7 @@ export default function BacktestListPage() {
               <label>Tamaño de cuenta</label>
               <input type="number" step="0.01" value={accountSize} onChange={(e) => setAccountSize(e.target.value)} required />
             </div>
-            <div className="field">
+            <div className="field field-wide">
               <label>Importar CSV (opcional)</label>
               <CsvFilePicker
                 fileName={csv?.fileName}
@@ -172,9 +173,19 @@ export default function BacktestListPage() {
                   <td>{bt.lot_size}</td>
                   <td>{bt.account_size}</td>
                   <td>
-                    <button className="btn" onClick={() => navigate(`/backtests/${bt.id}`)}>
-                      Ver detalle
-                    </button>
+                    <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
+                      <button className="btn" onClick={() => navigate(`/backtests/${bt.id}`)}>
+                        Ver detalle
+                      </button>
+                      <ConfirmDeleteButton
+                        label="Eliminar"
+                        question={`¿Eliminar "${bt.name}" y todos sus días?`}
+                        onConfirm={async () => {
+                          await deleteBacktest(bt.id);
+                          setBacktests((list) => list.filter((b) => b.id !== bt.id));
+                        }}
+                      />
+                    </div>
                   </td>
                 </tr>
               ))}

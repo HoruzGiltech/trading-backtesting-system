@@ -181,3 +181,15 @@ def update_backtest(
     db.commit()
     db.refresh(backtest)
     return backtest
+
+
+@router.delete("/{backtest_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_backtest(
+    backtest_id: UUID,
+    db: Session = Depends(get_db),
+    current_trader: Trader = Depends(get_current_trader),
+):
+    """Borra el backtest y todos sus días (cascade en la relación entries)."""
+    backtest = _get_owned_backtest(backtest_id, db, current_trader)
+    db.delete(backtest)
+    db.commit()

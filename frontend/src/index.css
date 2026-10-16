@@ -147,15 +147,28 @@ p { color: var(--text-muted); }
 
 .btn-primary:hover { background: #d9b06f; }
 
-/* Selector de archivo: sustituye al input nativo, mismo alto que los campos */
-.file-picker {
+/* Campo que ocupa dos columnas del form-row (una sola en móvil) */
+.field-wide { grid-column: span 2; }
+
+@media (max-width: 480px) {
+  .field-wide { grid-column: auto; }
+}
+
+/* Selector de archivo: sustituye al input nativo, mismo alto que los campos.
+   Es un <label>, por eso también se declara con .field para ganarle a ".field label" */
+.file-picker,
+.field label.file-picker {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  height: 36px;
+  margin: 0;
+  font-size: inherit;
+  color: inherit;
   background: var(--bg);
   border: 1px dashed var(--border);
   border-radius: var(--radius);
-  padding: 4px 4px 4px 10px;
+  padding: 0 4px 0 10px;
   cursor: pointer;
   min-width: 0;
 }
@@ -175,7 +188,26 @@ p { color: var(--text-muted); }
 }
 
 .file-picker-name.has-file { color: var(--text); }
-.file-picker .btn { padding: 5px 12px; pointer-events: none; }
+.file-picker .btn {
+  padding: 4px 12px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  background: var(--surface);
+  pointer-events: none;
+}
+
+.file-picker:hover .btn { border-color: var(--accent); color: var(--accent); }
+
+.btn-danger { border-color: var(--loss); color: var(--loss); }
+.btn-danger:hover { background: var(--loss-dim); }
+
+.btn-danger-solid {
+  background: var(--loss);
+  border-color: var(--loss);
+  color: var(--text);
+}
+
+.btn-danger-solid:hover { background: #d0665c; }
 
 .btn-icon {
   background: none;
