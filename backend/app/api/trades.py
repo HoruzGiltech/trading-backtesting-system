@@ -1,4 +1,5 @@
 from datetime import datetime, time, timezone
+from decimal import Decimal
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -118,8 +119,48 @@ def update_trade(
     db: Session = Depends(get_db),
     current_trader: Trader = Depends(get_current_trader),
 ):
+    """Corrige una operación. En los días sin operar solo se cambian las observaciones aquí."""
     trade = _get_owned_trade(trade_id, db, current_trader)
-    trade.observations = data.observations
+    changes = data.model_dump(exclude_unset=True)
+    trade_fields = set(changes) - {"observations"}
+    if trade_fields and trade.result == "NO_TRADE":
+        raise HTTPException(status_code=409, detail="Los días sin operar se editan en /trades/no-trade-days/{id}")
+    # El % puede quedar vacío (cuenta sin tamaño conocido); el resto de columnas no admite NULL
+    missing = [f for f in trade_fields - {"percentage"} if changes[f] is None]
+    if missing:
+        raise HTTPException(status_code=422, detail=f"Campos sin valor: {', '.join(sorted(missing))}")
+
+    for field, value in changes.items():
+        setattr(trade, field, value.upper() if field == "symbol" else value)
+    if trade_fields & {"symbol", "side", "open_price", "close_price"}:
+        trade.pips = calculate_pips(trade.symbol, trade.side, Decimal(trade.open_price), Decimal(trade.close_price))
+    if "profit" in trade_fields:
+        trade.result = classify_result(Decimal(trade.profit))
+    db.commit()
+    db.refresh(trade)
+    return trade
+
+
+@router.put("/no-trade-days/{trade_id}", response_model=TradeOut)
+def update_no_trade_day(
+    trade_id: UUID,
+    data: NoTradeDayCreate,
+    db: Session = Depends(get_db),
+    current_trader: Trader = Depends(get_current_trader),
+):
+    """Corrige la fecha o el motivo de un día sin operar."""
+    trade = _get_owned_trade(trade_id, db, current_trader)
+    if trade.result != "NO_TRADE":
+        raise HTTPException(status_code=409, detail="Esa fila no es un día sin operar")
+    external_id = f"no-trade:{data.date.isoformat()}"
+    clash = db.query(Trade).filter(
+        Trade.trader_id == current_trader.id, Trade.external_id == external_id, Trade.id != trade.id
+    ).first()
+    if clash:
+        raise HTTPException(status_code=409, detail="Ese día ya está registrado como no operado")
+    trade.external_id = external_id
+    trade.closed_at = datetime.combine(data.date, time(12), tzinfo=timezone.utc)
+    trade.observations = data.reason.strip()
     db.commit()
     db.refresh(trade)
     return trade

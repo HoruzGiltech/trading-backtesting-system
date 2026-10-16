@@ -1,4 +1,4 @@
-import axios from "axios";
+import axios, { isAxiosError } from "axios";
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL,
@@ -28,3 +28,25 @@ api.interceptors.response.use(
 );
 
 export default api;
+
+const FIELD_LABELS: Record<string, string> = {
+  entry_date: "Fecha", side: "Lado", open_price: "Precio apertura", close_price: "Precio cierre",
+  result: "Resultado", percentage: "%", amount: "Monto", pips_ticks: "Pips/Ticks", observations: "Observaciones",
+  symbol: "Símbolo", volume: "Lotes", closed_at: "Fecha de cierre", profit: "Monto", date: "Fecha", reason: "Motivo",
+};
+
+// Mensaje legible a partir del error del backend. En un 422 de FastAPI indica qué campo falló y por qué.
+export function apiErrorMessage(err: unknown, fallback: string): string {
+  if (!isAxiosError(err)) return fallback;
+  if (!err.response) return `${fallback} (sin respuesta del servidor)`;
+  const detail = err.response.data?.detail;
+  if (typeof detail === "string") return detail;
+  if (Array.isArray(detail) && detail.length > 0) {
+    const issues = detail.map((d: { loc?: (string | number)[]; msg?: string }) => {
+      const field = String(d.loc?.[d.loc.length - 1] ?? "");
+      return `${FIELD_LABELS[field] ?? field}: ${d.msg ?? "valor no válido"}`;
+    });
+    return `${fallback} ${issues.join("; ")}`;
+  }
+  return `${fallback} (error ${err.response.status})`;
+}

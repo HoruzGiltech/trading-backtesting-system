@@ -55,6 +55,16 @@ class TradeOut(BaseModel):
 
 
 class TradeUpdate(BaseModel):
+    """Corrección de una operación: solo se cambian los campos enviados.
+    Pips y resultado no se envían: se recalculan a partir de precios y monto."""
+    symbol: Optional[Annotated[str, Field(min_length=1, max_length=20)]] = None
+    side: Optional[Literal["BUY", "SELL"]] = None
+    volume: Optional[Annotated[Decimal, Field(gt=0, max_digits=10, decimal_places=2)]] = None
+    open_price: Optional[Annotated[Decimal, Field(gt=0, max_digits=14, decimal_places=6)]] = None
+    close_price: Optional[Annotated[Decimal, Field(gt=0, max_digits=14, decimal_places=6)]] = None
+    closed_at: Optional[datetime] = None
+    profit: Optional[Annotated[Decimal, Field(max_digits=12, decimal_places=2)]] = None
+    percentage: Optional[Annotated[Decimal, Field(max_digits=8, decimal_places=2)]] = None  # null = sin %
     observations: Optional[str] = None
 
 

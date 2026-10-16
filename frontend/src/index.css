@@ -250,6 +250,55 @@ td {
 
 tr:last-child td { border-bottom: none; }
 
+.btn-sm { padding: 4px 10px; font-size: 12px; }
+
+/* Tabla de días del backtest: compacta para no necesitar scroll horizontal */
+.entries-table .num { text-align: right; }
+.entries-table td { vertical-align: top; }
+.entries-table .cell-date,
+.entries-table .cell-result,
+.entries-table .cell-amount,
+.entries-table .cell-edit { white-space: nowrap; }
+.entries-table .cell-obs {
+  color: var(--text-muted);
+  font-family: var(--font-ui);
+  overflow-wrap: anywhere;
+}
+.entries-table .cell-edit { width: 1%; text-align: right; }
+.cell-sub {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+  white-space: nowrap;
+}
+
+/* En pantallas estrechas cada día se muestra como tarjeta */
+@media (max-width: 640px) {
+  .entries-table thead { display: none; }
+  .entries-table tr {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      "date   edit"
+      "op     amount"
+      "result amount"
+      "obs    obs";
+    column-gap: 12px;
+    row-gap: 4px;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  .entries-table tr:last-child { border-bottom: none; }
+  .entries-table td { padding: 0; border: none; }
+  .entries-table .cell-date { grid-area: date; align-self: center; font-weight: 600; }
+  .entries-table .cell-edit { grid-area: edit; width: auto; }
+  .entries-table .cell-op { grid-area: op; }
+  .entries-table .cell-result { grid-area: result; }
+  .entries-table .cell-amount { grid-area: amount; align-self: center; }
+  .entries-table .cell-obs { grid-area: obs; }
+  .entries-table .cell-obs:empty { display: none; }
+}
+
 .result-badge {
   font-family: var(--font-mono);
   font-size: 11px;

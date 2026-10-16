@@ -1,13 +1,33 @@
 import type { FormEvent } from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { isAxiosError } from "axios";
 import { Layout } from "../components/Layout";
+import { apiErrorMessage } from "../services/api";
 import { downloadCsv } from "../services/csvExport";
 import {
   addNoTradeDay, createApiToken, deleteTrade, getTradeJournal, listApiTokens,
-  revokeApiToken, updateTradeObservations,
+  revokeApiToken, updateNoTradeDay, updateTrade, updateTradeObservations,
 } from "../services/tradeService";
-import type { ApiToken, TradeJournal } from "../types/trade";
+import type { ApiToken, Trade, TradeJournal } from "../types/trade";
+
+// Campos del formulario de corrección, como texto para los <input>
+interface TradeForm {
+  symbol: string;
+  side: "BUY" | "SELL";
+  volume: string;
+  open_price: string;
+  close_price: string;
+  closed_at: string;
+  profit: string;
+  percentage: string;
+  observations: string;
+}
+
+// ISO (UTC) → valor para <input type="datetime-local"> en hora local
+function toLocalInput(iso: string) {
+  const d = new Date(iso);
+  return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 19);
+}
 
 const RESULT_LABEL: Record<string, string> = { WIN: "WIN", LOSS: "LOSS", BE: "BE", NO_TRADE: "No operado" };
 const RESULT_CLASS: Record<string, string> = { WIN: "result-tp", LOSS: "result-sl", BE: "", NO_TRADE: "result-none" };
@@ -30,6 +50,15 @@ export default function TradeJournalPage() {
   const [noTradeReason, setNoTradeReason] = useState("");
   const [noTradeError, setNoTradeError] = useState<string | null>(null);
   const [savingNoTrade, setSavingNoTrade] = useState(false);
+
+  // Fila que se está corrigiendo (operación o día sin operar)
+  const [editTarget, setEditTarget] = useState<Trade | null>(null);
+  const [form, setForm] = useState<TradeForm | null>(null);
+  const [editDate, setEditDate] = useState("");
+  const [editReason, setEditReason] = useState("");
+  const [editError, setEditError] = useState<string | null>(null);
+  const [savingEdit, setSavingEdit] = useState(false);
+  const editPanelRef = useRef<HTMLFormElement>(null);
 
   useEffect(() => {
     load();
@@ -67,6 +96,7 @@ export default function TradeJournalPage() {
   async function handleDelete(id: string) {
     if (!confirm("¿Eliminar esta fila del diario?")) return;
     await deleteTrade(id);
+    if (editTarget?.id === id) cancelEdit();
     setJournal(await getTradeJournal());
   }
 
@@ -89,6 +119,72 @@ export default function TradeJournalPage() {
       setSavingNoTrade(false);
     }
   }
+
+  function startEdit(t: Trade) {
+    setEditTarget(t);
+    setEditError(null);
+    if (t.result === "NO_TRADE") {
+      setEditDate(t.closed_at.slice(0, 10));
+      setEditReason(t.observations ?? "");
+      setForm(null);
+    } else {
+      setForm({
+        symbol: t.symbol ?? "",
+        side: t.side ?? "BUY",
+        volume: t.volume != null ? String(t.volume) : "",
+        open_price: t.open_price != null ? String(t.open_price) : "",
+        close_price: t.close_price != null ? String(t.close_price) : "",
+        closed_at: toLocalInput(t.closed_at),
+        profit: String(t.profit),
+        percentage: t.percentage != null ? String(t.percentage) : "",
+        observations: t.observations ?? "",
+      });
+    }
+    requestAnimationFrame(() => editPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }));
+  }
+
+  function cancelEdit() {
+    setEditTarget(null);
+    setForm(null);
+    setEditError(null);
+  }
+
+  async function handleSaveEdit(e: FormEvent) {
+    e.preventDefault();
+    if (!editTarget) return;
+    setSavingEdit(true);
+    setEditError(null);
+    try {
+      if (form) {
+        await updateTrade(editTarget.id, {
+          symbol: form.symbol.trim(),
+          side: form.side,
+          volume: parseFloat(form.volume),
+          open_price: parseFloat(form.open_price),
+          close_price: parseFloat(form.close_price),
+          closed_at: new Date(form.closed_at).toISOString(),
+          profit: parseFloat(form.profit),
+          percentage: form.percentage.trim() === "" ? null : parseFloat(form.percentage),
+          observations: form.observations,
+        });
+      } else {
+        await updateNoTradeDay(editTarget.id, editDate, editReason.trim());
+      }
+      cancelEdit();
+      setJournal(await getTradeJournal());
+    } catch (err) {
+      setEditError(
+        isAxiosError(err) && err.response?.status === 409
+          ? "Ese día ya está registrado como no operado."
+          : apiErrorMessage(err, "No se pudieron guardar los cambios.")
+      );
+    } finally {
+      setSavingEdit(false);
+    }
+  }
+
+  const setField = (field: keyof TradeForm) => (e: { target: { value: string } }) =>
+    setForm((f) => (f ? { ...f, [field]: e.target.value } : f));
 
   function handleExportCsv() {
     if (!journal) return;
@@ -169,6 +265,83 @@ export default function TradeJournalPage() {
         </form>
       )}
 
+      {editTarget && (
+        <form className="panel" onSubmit={handleSaveEdit} ref={editPanelRef}>
+          <h3 style={{ marginTop: 0 }}>
+            {form ? `Editar operación ${editTarget.symbol ?? ""}` : "Editar día sin operar"}
+          </h3>
+          {form ? (
+            <>
+              <div className="form-row">
+                <div className="field">
+                  <label>Símbolo</label>
+                  <input type="text" value={form.symbol} maxLength={20} onChange={setField("symbol")} required />
+                </div>
+                <div className="field">
+                  <label>Lado</label>
+                  <select value={form.side} onChange={setField("side")}>
+                    <option value="BUY">Compra</option>
+                    <option value="SELL">Venta</option>
+                  </select>
+                </div>
+                <div className="field">
+                  <label>Lotes</label>
+                  <input type="number" step="0.01" min="0.01" value={form.volume} onChange={setField("volume")} required />
+                </div>
+                <div className="field">
+                  <label>Precio apertura</label>
+                  <input type="number" step="any" min="0" value={form.open_price} onChange={setField("open_price")} required />
+                </div>
+                <div className="field">
+                  <label>Precio cierre</label>
+                  <input type="number" step="any" min="0" value={form.close_price} onChange={setField("close_price")} required />
+                </div>
+                <div className="field">
+                  <label>Fecha y hora de cierre</label>
+                  <input type="datetime-local" step="1" value={form.closed_at} onChange={setField("closed_at")} required />
+                </div>
+                <div className="field">
+                  <label>Monto $ (con signo)</label>
+                  <input type="number" step="0.01" value={form.profit} onChange={setField("profit")} required />
+                </div>
+                <div className="field">
+                  <label>% (opcional)</label>
+                  <input type="number" step="0.01" value={form.percentage} onChange={setField("percentage")} />
+                </div>
+                <div className="field">
+                  <label>Observaciones</label>
+                  <input type="text" value={form.observations} onChange={setField("observations")} />
+                </div>
+              </div>
+              <p style={{ fontSize: 12, margin: "0 0 8px" }}>
+                Los pips y el resultado (WIN/LOSS/BE) se recalculan a partir de los precios y el monto.
+              </p>
+            </>
+          ) : (
+            <div className="form-row">
+              <div className="field">
+                <label>Fecha</label>
+                <input type="date" value={editDate} onChange={(e) => setEditDate(e.target.value)} required />
+              </div>
+              <div className="field">
+                <label>Motivo por el que no se operó</label>
+                <input
+                  type="text" value={editReason} maxLength={500} required
+                  onChange={(e) => setEditReason(e.target.value)}
+                />
+              </div>
+            </div>
+          )}
+          {editError && <p style={{ color: "var(--loss)", margin: "0 0 8px" }}>{editError}</p>}
+          <div style={{ display: "flex", gap: 8 }}>
+            <button type="submit" className="btn btn-primary" disabled={savingEdit || (!form && !editReason.trim())}>
+              {savingEdit ? "Guardando..." : "Guardar cambios"}
+            </button>
+            <button type="button" className="btn" onClick={cancelEdit} disabled={savingEdit}>Cancelar</button>
+          </div>
+        </form>
+      )}
+
       <div className="panel" style={{ padding: 0, overflowX: "auto" }}>
         {journal && journal.trades.length > 0 ? (
           <table>
@@ -209,7 +382,8 @@ export default function TradeJournalPage() {
                       </span>
                     )}
                   </td>
-                  <td>
+                  <td style={{ whiteSpace: "nowrap" }}>
+                    <button className="btn" onClick={() => startEdit(t)} style={{ marginRight: 6 }}>Editar</button>
                     <button className="btn" onClick={() => handleDelete(t.id)} aria-label="Eliminar">✕</button>
                   </td>
                 </tr>

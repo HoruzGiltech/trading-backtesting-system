@@ -1,5 +1,5 @@
 import type { FormEvent } from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { isAxiosError } from "axios";
 import { CsvFilePicker } from "../components/CsvFilePicker";
@@ -7,12 +7,14 @@ import { ConfirmDeleteButton } from "../components/ConfirmDeleteButton";
 import { CsvPreviewNote } from "../components/CsvPreviewNote";
 import { Layout } from "../components/Layout";
 import {
-  addBacktestEntry, addNoTradeDay, deleteBacktest, getBacktestDetail, importBacktestEntries, updateBacktest,
+  addBacktestEntry, addNoTradeDay, deleteBacktest, deleteBacktestEntry, getBacktestDetail, importBacktestEntries,
+  updateBacktest, updateBacktestEntry, updateNoTradeDay,
 } from "../services/backtestService";
 import { downloadCsv } from "../services/csvExport";
 import type { CsvImportPreview } from "../services/csvImport";
 import { readBacktestCsv } from "../services/csvImport";
-import type { BacktestDetail, ResultType } from "../types/backtest";
+import { apiErrorMessage } from "../services/api";
+import type { BacktestDetail, BacktestEntry, ResultType } from "../types/backtest";
 
 export default function BacktestDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -44,6 +46,14 @@ export default function BacktestDetailPage() {
   const [pipsTicks, setPipsTicks] = useState("");
   const [observations, setObservations] = useState("");
   const [saving, setSaving] = useState(false);
+  const [entryError, setEntryError] = useState<string | null>(null);
+
+  // Día que se está corrigiendo: se carga en el formulario de "Agregar día" o en el de "Día sin operar"
+  const [editingEntry, setEditingEntry] = useState<BacktestEntry | null>(null);
+  const entryFormRef = useRef<HTMLFormElement>(null);
+  const noTradeFormRef = useRef<HTMLFormElement>(null);
+  const editingTrade = editingEntry && editingEntry.result !== "NO_TRADE" ? editingEntry : null;
+  const editingNoTrade = editingEntry?.result === "NO_TRADE" ? editingEntry : null;
 
   const [showNoTrade, setShowNoTrade] = useState(false);
   const [noTradeDate, setNoTradeDate] = useState("");
@@ -64,30 +74,92 @@ export default function BacktestDetailPage() {
     }
   }
 
+  function resetEntryForm() {
+    setEntryDate(""); setSide("BUY"); setOpenPrice(""); setClosePrice(""); setResult("TP");
+    setPercentage(""); setAmount(""); setPipsTicks(""); setObservations("");
+  }
+
+  function startEditEntry(entry: BacktestEntry) {
+    setEditingEntry(entry);
+    setEntryError(null);
+    setNoTradeError(null);
+    // Si se estaba corrigiendo otro tipo de día, su formulario vuelve a quedar vacío
+    if (entry.result === "NO_TRADE") {
+      if (editingTrade) resetEntryForm();
+      setNoTradeDate(entry.entry_date);
+      setNoTradeReason(entry.observations ?? "");
+      setShowNoTrade(true);
+      requestAnimationFrame(() => noTradeFormRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }));
+      return;
+    }
+    if (editingNoTrade) { setNoTradeDate(""); setNoTradeReason(""); }
+    setShowNoTrade(false);
+    setEntryDate(entry.entry_date);
+    setSide(entry.side ?? "BUY");
+    setOpenPrice(entry.open_price != null ? String(entry.open_price) : "");
+    setClosePrice(entry.close_price != null ? String(entry.close_price) : "");
+    setResult(entry.result);
+    setPercentage(String(entry.percentage));
+    setAmount(String(entry.amount));
+    setPipsTicks(String(entry.pips_ticks));
+    setObservations(entry.observations ?? "");
+    entryFormRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function cancelEdit() {
+    if (editingNoTrade) {
+      setNoTradeDate(""); setNoTradeReason(""); setShowNoTrade(false);
+    } else {
+      resetEntryForm();
+    }
+    setEditingEntry(null);
+    setEntryError(null);
+    setNoTradeError(null);
+  }
+
+  async function handleDeleteEntry() {
+    if (!id || !editingEntry) return;
+    await deleteBacktestEntry(id, editingEntry.id);
+    cancelEdit();
+    await loadDetail(id);
+  }
+
   async function handleAddEntry(e: FormEvent) {
     e.preventDefault();
     if (!id) return;
     setSaving(true);
+    setEntryError(null);
     try {
       // En TP/SL el signo lo pone el resultado; en BE se respeta lo escrito (+/- por spread o comisión)
+      // Se redondea a los decimales que guarda la base (2 en montos, 6 en precios) para que el backend no la rechace
+      const round = (value: number, decimals: number) => Number(value.toFixed(decimals));
       const signed = (raw: string) => {
-        const value = parseFloat(raw);
+        const value = round(parseFloat(raw), 2);
         if (result === "BE") return value;
         return Math.abs(value) * (result === "SL" ? -1 : 1);
       };
-      await addBacktestEntry(id, {
+      const data = {
         entry_date: entryDate,
         side,
-        open_price: parseFloat(openPrice),
-        close_price: parseFloat(closePrice),
+        open_price: round(parseFloat(openPrice), 6),
+        close_price: round(parseFloat(closePrice), 6),
         result,
         percentage: signed(percentage),
         amount: signed(amount),
         pips_ticks: signed(pipsTicks),
         observations: observations || undefined,
-      });
-      setEntryDate(""); setOpenPrice(""); setClosePrice(""); setPercentage(""); setAmount(""); setPipsTicks(""); setObservations("");
+      };
+      if (editingTrade) {
+        await updateBacktestEntry(id, editingTrade.id, data);
+        setEditingEntry(null);
+        resetEntryForm();
+      } else {
+        await addBacktestEntry(id, data);
+        setEntryDate(""); setOpenPrice(""); setClosePrice(""); setPercentage(""); setAmount(""); setPipsTicks(""); setObservations("");
+      }
       await loadDetail(id);
+    } catch (err) {
+      setEntryError(apiErrorMessage(err, editingTrade ? "No se pudieron guardar los cambios." : "No se pudo agregar el día."));
     } finally {
       setSaving(false);
     }
@@ -99,7 +171,12 @@ export default function BacktestDetailPage() {
     setSavingNoTrade(true);
     setNoTradeError(null);
     try {
-      await addNoTradeDay(id, noTradeDate, noTradeReason.trim());
+      if (editingNoTrade) {
+        await updateNoTradeDay(id, editingNoTrade.id, noTradeDate, noTradeReason.trim());
+        setEditingEntry(null);
+      } else {
+        await addNoTradeDay(id, noTradeDate, noTradeReason.trim());
+      }
       setNoTradeDate(""); setNoTradeReason("");
       setShowNoTrade(false);
       await loadDetail(id);
@@ -215,8 +292,8 @@ export default function BacktestDetailPage() {
       {nameError && <p className="error-text">{nameError}</p>}
       <p>{detail.asset} · {detail.month}/{detail.year} · {detail.timeframe} · Lotaje: {detail.lot_size} · Cuenta: {detail.account_size}</p>
 
-      <h2>Agregar día</h2>
-      <form className="panel" onSubmit={handleAddEntry}>
+      <h2>{editingTrade ? `Editar día ${editingTrade.entry_date}` : "Agregar día"}</h2>
+      <form className="panel" onSubmit={handleAddEntry} ref={entryFormRef}>
         <div className="form-row">
           <div className="field">
             <label>Fecha</label>
@@ -266,15 +343,33 @@ export default function BacktestDetailPage() {
             <input type="text" value={observations} onChange={(e) => setObservations(e.target.value)} />
           </div>
         </div>
-        <button type="submit" className="btn btn-primary" disabled={saving} style={{ marginTop: 8 }}>
-          {saving ? "Guardando..." : "Agregar"}
-        </button>
+        {entryError && <p className="error-text">{entryError}</p>}
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginTop: 8 }}>
+          <button type="submit" className="btn btn-primary" disabled={saving}>
+            {saving ? "Guardando..." : editingTrade ? "Guardar cambios" : "Agregar"}
+          </button>
+          {editingTrade && (
+            <>
+              <button type="button" className="btn" onClick={cancelEdit} disabled={saving}>Cancelar</button>
+              <ConfirmDeleteButton
+                key={editingTrade.id} label="Eliminar día"
+                question={`¿Eliminar el día ${editingTrade.entry_date}?`} onConfirm={handleDeleteEntry}
+              />
+            </>
+          )}
+        </div>
       </form>
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
         <h2>Días registrados</h2>
-        <div style={{ display: "flex", gap: 8 }}>
-          <button className="btn" onClick={() => { setShowNoTrade(!showNoTrade); setNoTradeError(null); }}>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <button
+            className="btn"
+            onClick={() => {
+              if (editingNoTrade) { cancelEdit(); return; }
+              setShowNoTrade(!showNoTrade); setNoTradeError(null);
+            }}
+          >
             {showNoTrade ? "Cancelar" : "+ Día sin operar"}
           </button>
           <button className="btn" onClick={() => { setShowImport(!showImport); setImportPreview(null); setImportMessage(null); }}>
@@ -318,7 +413,8 @@ export default function BacktestDetailPage() {
       )}
 
       {showNoTrade && (
-        <form className="panel" onSubmit={handleAddNoTrade}>
+        <form className="panel" onSubmit={handleAddNoTrade} ref={noTradeFormRef}>
+          {editingNoTrade && <h3 style={{ marginTop: 0 }}>Editar día sin operar {editingNoTrade.entry_date}</h3>}
           <div className="form-row">
             <div className="field">
               <label>Fecha</label>
@@ -334,46 +430,67 @@ export default function BacktestDetailPage() {
             </div>
           </div>
           {noTradeError && <p style={{ color: "var(--loss)", margin: "0 0 8px" }}>{noTradeError}</p>}
-          <button type="submit" className="btn btn-primary" disabled={savingNoTrade || !noTradeReason.trim()}>
-            {savingNoTrade ? "Guardando..." : "Registrar día sin operar"}
-          </button>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+            <button type="submit" className="btn btn-primary" disabled={savingNoTrade || !noTradeReason.trim()}>
+              {savingNoTrade ? "Guardando..." : editingNoTrade ? "Guardar cambios" : "Registrar día sin operar"}
+            </button>
+            {editingNoTrade && (
+              <ConfirmDeleteButton
+                key={editingNoTrade.id} label="Eliminar día"
+                question={`¿Eliminar el día ${editingNoTrade.entry_date}?`} onConfirm={handleDeleteEntry}
+              />
+            )}
+          </div>
         </form>
       )}
 
-      <div className="panel" style={{ padding: 0, overflowX: "auto" }}>
-        <table>
+      {/* Tabla compacta para que quepa sin scroll horizontal: el símbolo ya está en la cabecera,
+          lado + precios van en "Operación" y %/pips debajo del monto. En móvil cada día es una tarjeta. */}
+      <div className="panel" style={{ padding: 0 }}>
+        <table className="entries-table">
           <thead>
             <tr>
-              <th>Fecha</th><th>Símbolo</th><th>Lado</th><th>Apertura</th><th>Cierre</th>
-              <th>Resultado</th><th>%</th><th>Monto</th><th>Pips/Ticks</th><th>Observaciones</th>
+              <th>Fecha</th><th>Operación</th><th>Resultado</th><th className="num">Monto</th><th>Observaciones</th><th></th>
             </tr>
           </thead>
           <tbody>
-            {detail.entries.map((entry) =>
-              entry.result === "NO_TRADE" ? (
+            {detail.entries.map((entry) => {
+              const noTrade = entry.result === "NO_TRADE";
+              const sideLabel = entry.side === "BUY" ? "Compra" : entry.side === "SELL" ? "Venta" : "—";
+              const badgeClass = noTrade ? "result-none" : entry.result === "TP" ? "result-tp" : entry.result === "BE" ? "result-be" : "result-sl";
+              return (
                 <tr key={entry.id}>
-                  <td>{entry.entry_date}</td>
-                  <td>{detail.asset}</td>
-                  <td>—</td><td>—</td><td>—</td>
-                  <td><span className="result-badge result-none">No operado</span></td>
-                  <td>—</td><td>—</td><td>—</td>
-                  <td style={{ color: "var(--text-muted)" }}>{entry.observations}</td>
+                  <td className="cell-date">{entry.entry_date}</td>
+                  <td className="cell-op">
+                    {noTrade ? "—" : (
+                      <>
+                        {sideLabel}
+                        {entry.open_price != null && entry.close_price != null && (
+                          <div className="cell-sub">{entry.open_price} → {entry.close_price}</div>
+                        )}
+                      </>
+                    )}
+                  </td>
+                  <td className="cell-result">
+                    <span className={`result-badge ${badgeClass}`}>{noTrade ? "No operado" : entry.result}</span>
+                  </td>
+                  <td className="cell-amount num">
+                    {noTrade ? "—" : (
+                      <>
+                        <span className={fmt(entry.amount)}>{entry.amount}</span>
+                        <div className="cell-sub">
+                          <span className={fmt(entry.percentage)}>{entry.percentage}%</span> · {entry.pips_ticks} pips
+                        </div>
+                      </>
+                    )}
+                  </td>
+                  <td className="cell-obs">{entry.observations}</td>
+                  <td className="cell-edit">
+                    <button className="btn btn-sm" onClick={() => startEditEntry(entry)}>Editar</button>
+                  </td>
                 </tr>
-              ) : (
-                <tr key={entry.id}>
-                  <td>{entry.entry_date}</td>
-                  <td>{detail.asset}</td>
-                  <td>{entry.side === "BUY" ? "Compra" : entry.side === "SELL" ? "Venta" : "—"}</td>
-                  <td>{entry.open_price ?? "—"}</td>
-                  <td>{entry.close_price ?? "—"}</td>
-                  <td><span className={`result-badge ${entry.result === "TP" ? "result-tp" : entry.result === "BE" ? "result-be" : "result-sl"}`}>{entry.result}</span></td>
-                  <td className={fmt(entry.percentage)}>{entry.percentage}%</td>
-                  <td className={fmt(entry.amount)}>{entry.amount}</td>
-                  <td className={fmt(entry.pips_ticks)}>{entry.pips_ticks}</td>
-                  <td style={{ color: "var(--text-muted)" }}>{entry.observations}</td>
-                </tr>
-              )
-            )}
+              );
+            })}
           </tbody>
         </table>
       </div>

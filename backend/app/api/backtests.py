@@ -165,6 +165,77 @@ def import_entries(
     return BacktestImportResult(imported=imported, skipped=skipped)
 
 
+def _get_owned_entry(backtest: Backtest, entry_id: UUID, db: Session) -> BacktestEntry:
+    entry = db.query(BacktestEntry).filter(
+        BacktestEntry.id == entry_id, BacktestEntry.backtest_id == backtest.id
+    ).first()
+    if not entry:
+        raise HTTPException(status_code=404, detail="Entry not found")
+    return entry
+
+
+@router.put("/{backtest_id}/entries/{entry_id}", response_model=BacktestEntryOut)
+def update_entry(
+    backtest_id: UUID,
+    entry_id: UUID,
+    data: BacktestEntryCreate,
+    db: Session = Depends(get_db),
+    current_trader: Trader = Depends(get_current_trader),
+):
+    """Corrige un día operado. Los días sin operar se editan en /no-trade-days/{entry_id}."""
+    backtest = _get_owned_backtest(backtest_id, db, current_trader)
+    entry = _get_owned_entry(backtest, entry_id, db)
+    if entry.result == ResultType.NO_TRADE:
+        raise HTTPException(status_code=409, detail="Ese día está registrado como no operado")
+    for field, value in data.model_dump().items():
+        setattr(entry, field, value)
+    entry.result = ResultType(data.result)
+    db.commit()
+    db.refresh(entry)
+    return entry
+
+
+@router.put("/{backtest_id}/no-trade-days/{entry_id}", response_model=BacktestEntryOut)
+def update_no_trade_day(
+    backtest_id: UUID,
+    entry_id: UUID,
+    data: NoTradeEntryCreate,
+    db: Session = Depends(get_db),
+    current_trader: Trader = Depends(get_current_trader),
+):
+    """Corrige la fecha o el motivo de un día sin operar."""
+    backtest = _get_owned_backtest(backtest_id, db, current_trader)
+    entry = _get_owned_entry(backtest, entry_id, db)
+    if entry.result != ResultType.NO_TRADE:
+        raise HTTPException(status_code=409, detail="Ese día no está registrado como no operado")
+    clash = db.query(BacktestEntry).filter(
+        BacktestEntry.backtest_id == backtest.id,
+        BacktestEntry.entry_date == data.entry_date,
+        BacktestEntry.result == ResultType.NO_TRADE,
+        BacktestEntry.id != entry.id,
+    ).first()
+    if clash:
+        raise HTTPException(status_code=409, detail="Ese día ya está registrado como no operado")
+    entry.entry_date = data.entry_date
+    entry.observations = data.reason.strip()
+    db.commit()
+    db.refresh(entry)
+    return entry
+
+
+@router.delete("/{backtest_id}/entries/{entry_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_entry(
+    backtest_id: UUID,
+    entry_id: UUID,
+    db: Session = Depends(get_db),
+    current_trader: Trader = Depends(get_current_trader),
+):
+    """Borra un día registrado (operado o sin operar)."""
+    backtest = _get_owned_backtest(backtest_id, db, current_trader)
+    db.delete(_get_owned_entry(backtest, entry_id, db))
+    db.commit()
+
+
 @router.patch("/{backtest_id}", response_model=BacktestOut)
 def update_backtest(
     backtest_id: UUID,
