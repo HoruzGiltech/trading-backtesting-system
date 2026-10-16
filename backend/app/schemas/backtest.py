@@ -15,6 +15,9 @@ class BacktestCreate(BaseModel):
     account_size: Annotated[Decimal, Field(max_digits=12, decimal_places=2)]
     timeframe: str
 
+class BacktestUpdate(BaseModel):
+    name: Annotated[str, Field(min_length=1, max_length=120)]
+
 class BacktestOut(BaseModel):
     id: UUID
     name: str
@@ -35,7 +38,7 @@ class BacktestEntryCreate(BaseModel):
     side: Literal["BUY", "SELL"]
     open_price: Annotated[Decimal, Field(gt=0, max_digits=14, decimal_places=6)]
     close_price: Annotated[Decimal, Field(gt=0, max_digits=14, decimal_places=6)]
-    result: Literal["TP", "SL"]
+    result: Literal["TP", "SL", "BE"]
     percentage: Annotated[Decimal, Field(max_digits=6, decimal_places=2)]
     amount: Annotated[Decimal, Field(max_digits=12, decimal_places=2)]
     pips_ticks: Annotated[Decimal, Field(max_digits=10, decimal_places=2)]
@@ -48,7 +51,7 @@ class NoTradeEntryCreate(BaseModel):
 class BacktestEntryImport(BaseModel):
     """Fila de un CSV importado. En los CSV antiguos no hay lado ni precios, por eso son opcionales."""
     entry_date: date
-    result: Literal["TP", "SL", "NO_TRADE"]
+    result: Literal["TP", "SL", "BE", "NO_TRADE"]
     side: Optional[Literal["BUY", "SELL"]] = None
     open_price: Optional[Annotated[Decimal, Field(gt=0, max_digits=14, decimal_places=6)]] = None
     close_price: Optional[Annotated[Decimal, Field(gt=0, max_digits=14, decimal_places=6)]] = None
@@ -92,6 +95,7 @@ class BacktestSummary(BaseModel):
     no_trade_count: int
     tp_count: int
     sl_count: int
+    be_count: int
     profit_amount: float
     loss_amount: float
     net_profit: float

@@ -1,6 +1,7 @@
-import type { ChangeEvent, FormEvent } from "react";
+import type { FormEvent } from "react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { CsvFilePicker } from "../components/CsvFilePicker";
 import { CsvPreviewNote } from "../components/CsvPreviewNote";
 import { Layout } from "../components/Layout";
 import { createBacktest, importBacktestEntries, listBacktests } from "../services/backtestService";
@@ -38,10 +39,8 @@ export default function BacktestListPage() {
     }
   }
 
-  async function handleCsvChange(e: ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
+  async function handleCsvFile(file: File) {
     setFormError(null);
-    if (!file) { setCsv(null); return; }
     const preview = await readBacktestCsv(file);
     setCsv(preview);
     // Rellena la cabecera con lo que trae el archivo, sin pisar lo ya escrito
@@ -130,7 +129,11 @@ export default function BacktestListPage() {
             </div>
             <div className="field">
               <label>Importar CSV (opcional)</label>
-              <input type="file" accept=".csv,text/csv" onChange={handleCsvChange} />
+              <CsvFilePicker
+                fileName={csv?.fileName}
+                onFile={handleCsvFile}
+                onClear={() => { setCsv(null); setFormError(null); }}
+              />
             </div>
           </div>
           {csv && <CsvPreviewNote preview={csv} />}
