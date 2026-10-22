@@ -297,6 +297,44 @@ tr:last-child td { border-bottom: none; }
   .entries-table .cell-amount { grid-area: amount; align-self: center; }
   .entries-table .cell-obs { grid-area: obs; }
   .entries-table .cell-obs:empty { display: none; }
+
+  .api-token-table {
+    display: block;
+    width: 100%;
+    border-collapse: separate;
+  }
+  .api-token-table thead { display: none; }
+  .api-token-table tbody {
+    display: grid;
+    gap: 10px;
+  }
+  .api-token-table tr {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--bg);
+  }
+  .api-token-table td {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    gap: 2px;
+    padding: 0;
+    border: 0;
+    overflow-wrap: anywhere;
+    font-size: 12px;
+  }
+  .api-token-table td::before {
+    content: attr(data-label);
+    color: var(--text-muted);
+    font-family: var(--font-ui);
+    font-size: 10px;
+  }
+  .api-token-table td:last-child { grid-column: 1 / -1; }
+  .api-token-table td:last-child .btn { align-self: flex-start; }
 }
 
 .result-badge {
@@ -625,6 +663,20 @@ tr:last-child td { border-bottom: none; }
 }
 
 @media (max-width: 520px) {
+  .panel { padding: 14px; }
+  .form-row { grid-template-columns: minmax(0, 1fr); }
+  .field-wide { grid-column: auto; }
+  .backtest-create-form > .btn { width: 100%; min-height: 44px; }
+  .backtest-list-heading {
+    align-items: stretch !important;
+    flex-wrap: wrap;
+    gap: 8px !important;
+  }
+  .backtest-list-heading h1 {
+    flex: 1 1 100%;
+    margin-bottom: 0;
+  }
+  .backtest-list-heading > .btn { width: 100%; }
   .calendar-main { padding: 6px; }
   .calendar-toolbar { gap: 6px; }
   .calendar-toolbar h3 { flex: 1; min-width: 0; font-size: 14px; }

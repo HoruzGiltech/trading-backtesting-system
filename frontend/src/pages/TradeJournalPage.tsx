@@ -472,18 +472,18 @@ export default function TradeJournalPage() {
         <button className="btn btn-primary" onClick={handleCreateToken}>Generar token</button>
 
         {tokens.length > 0 && (
-          <table style={{ marginTop: 16 }}>
+          <table className="api-token-table" style={{ marginTop: 16 }}>
             <thead>
               <tr><th>Nombre</th><th>Prefijo</th><th>Creado</th><th>Último uso</th><th></th></tr>
             </thead>
             <tbody>
               {tokens.map((tk) => (
                 <tr key={tk.id}>
-                  <td>{tk.name}</td>
-                  <td>{tk.prefix}…</td>
-                  <td>{new Date(tk.created_at).toLocaleString()}</td>
-                  <td>{tk.last_used_at ? new Date(tk.last_used_at).toLocaleString() : "Nunca"}</td>
-                  <td><button className="btn" onClick={() => handleRevoke(tk.id)}>Revocar</button></td>
+                  <td data-label="Nombre">{tk.name}</td>
+                  <td data-label="Prefijo">{tk.prefix}…</td>
+                  <td data-label="Creado">{new Date(tk.created_at).toLocaleString()}</td>
+                  <td data-label="Último uso">{tk.last_used_at ? new Date(tk.last_used_at).toLocaleString() : "Nunca"}</td>
+                  <td data-label="Acciones"><button className="btn" onClick={() => handleRevoke(tk.id)}>Revocar</button></td>
                 </tr>
               ))}
             </tbody>
