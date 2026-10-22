@@ -2,6 +2,7 @@ import type { FormEvent } from "react";
 import { useEffect, useRef, useState } from "react";
 import { isAxiosError } from "axios";
 import { Layout } from "../components/Layout";
+import { TradeCalendar, type TradeCalendarEntry } from "../components/TradeCalendar";
 import { apiErrorMessage } from "../services/api";
 import { downloadCsv } from "../services/csvExport";
 import {
@@ -201,6 +202,39 @@ export default function TradeJournalPage() {
   }
 
   const fmt = (n: number) => (n > 0 ? "num-positive" : n < 0 ? "num-negative" : "");
+  const calendarEntries: TradeCalendarEntry[] = (journal?.trades ?? []).map((trade) => {
+    const noTrade = trade.result === "NO_TRADE";
+    const closedAt = new Date(trade.closed_at);
+    const date = noTrade
+      ? trade.closed_at.slice(0, 10)
+      : `${closedAt.getFullYear()}-${String(closedAt.getMonth() + 1).padStart(2, "0")}-${String(closedAt.getDate()).padStart(2, "0")}`;
+    const resultClass = trade.result === "WIN"
+      ? "positive"
+      : trade.result === "LOSS" ? "negative" : trade.result === "BE" ? "breakeven" : "neutral";
+    return {
+      id: trade.id,
+      date,
+      title: noTrade ? "Día sin operar" : `${trade.symbol ?? "Trade"} · ${trade.side === "BUY" ? "Compra" : "Venta"}`,
+      result: RESULT_LABEL[trade.result],
+      resultClass,
+      profit: trade.profit,
+      noTrade,
+      details: [
+        { label: "Símbolo", value: trade.symbol ?? "—" },
+        { label: "Lado", value: trade.side === "BUY" ? "Compra" : trade.side === "SELL" ? "Venta" : "—" },
+        { label: "Lotes", value: trade.volume != null ? String(trade.volume) : "—" },
+        { label: "Apertura", value: trade.open_price != null ? String(trade.open_price) : "—" },
+        { label: "Cierre", value: trade.close_price != null ? String(trade.close_price) : "—" },
+        { label: "Fecha y hora", value: noTrade ? date : closedAt.toLocaleString() },
+        { label: "Pips", value: noTrade ? "—" : String(trade.pips) },
+        { label: "Porcentaje", value: trade.percentage != null ? `${trade.percentage}%` : "—" },
+        { label: "Monto", value: noTrade ? "—" : `$${trade.profit}` },
+        { label: "Cuenta", value: trade.account_number ?? "—" },
+        { label: "Fuente", value: trade.source || "—" },
+        { label: "Observaciones", value: trade.observations ?? "—" },
+      ],
+    };
+  });
 
   if (loading) return <Layout><p>Cargando...</p></Layout>;
 
@@ -231,7 +265,7 @@ export default function TradeJournalPage() {
       )}
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-        <h2>Operaciones</h2>
+        <h2>Calendario de operaciones</h2>
         <div style={{ display: "flex", gap: 8 }}>
           <button className="btn" onClick={() => { setShowNoTrade(!showNoTrade); setNoTradeError(null); }}>
             {showNoTrade ? "Cancelar" : "+ Día sin operar"}
@@ -342,7 +376,24 @@ export default function TradeJournalPage() {
         </form>
       )}
 
-      <div className="panel" style={{ padding: 0, overflowX: "auto" }}>
+      {calendarEntries.length > 0 ? (
+        <TradeCalendar
+          entries={calendarEntries}
+          initialMonth={new Date()}
+          navigable
+          onEditEntry={(tradeId) => {
+            const trade = journal?.trades.find((item) => item.id === tradeId);
+            if (trade) startEdit(trade);
+          }}
+        />
+      ) : (
+        <div className="panel">Aún no hay operaciones para mostrar en el calendario.</div>
+      )}
+
+      <details className="panel calendar-table-disclosure">
+        <summary>Ver listado de operaciones</summary>
+        <div className="calendar-table-content">
+          <div className="panel" style={{ padding: 0, overflowX: "auto" }}>
         {journal && journal.trades.length > 0 ? (
           <table>
             <thead>
@@ -397,7 +448,9 @@ export default function TradeJournalPage() {
             "Posiciones cerradas" en tu plataforma.
           </p>
         )}
-      </div>
+          </div>
+        </div>
+      </details>
 
       <h2>Conexión con la extensión</h2>
       <div className="panel">

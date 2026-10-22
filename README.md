@@ -19,7 +19,8 @@ alembic upgrade head
 
 - Backend: tablas `trades` y `api_tokens` (migración `a7d3e1f2b4c5`), endpoints `GET/PATCH/DELETE /trades`,
   `POST /trades/sync` (auth por `X-API-Key`) y `POST/GET/DELETE /api-tokens`.
-- Frontend: página **Diario** (`/journal`) con resumen, tabla de operaciones y gestión de tokens.
+- Frontend: página **Diario** (`/journal`) con resumen, calendario mensual seleccionable con detalle de las operaciones por día,
+  listado tabular alternativo y gestión de tokens.
 - Extensión: carpeta `extension/` — ver `extension/README.md`.
 
 ## Exportar a CSV y días sin operar
@@ -30,13 +31,15 @@ alembic upgrade head
   (`{entry_date, reason}`). Un día sin operar por fecha; no cuenta en las métricas del resumen.
 - Frontend: botones **+ Día sin operar** y **Descargar CSV** en Diario y en el detalle de backtest
   (el CSV se genera en el navegador, separado por comas y en UTF-8).
+- Diario y detalle de backtest: calendario mensual con resumen semanal; al seleccionar un día se abre el detalle de sus trades
+  y se puede iniciar la edición desde ahí.
 
 ## Lado y precios en los días de backtest
 
 - Migración `c9f5a3b4d6e7`: agrega `side`, `open_price` y `close_price` a `backtest_entries` (NULL en filas
   antiguas y en días sin operar). El símbolo no se guarda por fila: es el `asset` del backtest.
 - Frontend: el formulario "Agregar día" pide Lado, Precio apertura y Precio cierre (obligatorios) y muestra el
-  Símbolo bloqueado; la tabla y el CSV del backtest incluyen esas columnas.
+  Símbolo bloqueado; el calendario, el listado y el CSV del backtest incluyen esas columnas.
 
 ## Página 404, icono de pestaña y errores de login
 

@@ -6,6 +6,7 @@ import { CsvFilePicker } from "../components/CsvFilePicker";
 import { ConfirmDeleteButton } from "../components/ConfirmDeleteButton";
 import { CsvPreviewNote } from "../components/CsvPreviewNote";
 import { Layout } from "../components/Layout";
+import { TradeCalendar, type TradeCalendarEntry } from "../components/TradeCalendar";
 import {
   addBacktestEntry, addNoTradeDay, deleteBacktest, deleteBacktestEntry, getBacktestDetail, importBacktestEntries,
   updateBacktest, updateBacktestEntry, updateNoTradeDay,
@@ -257,6 +258,31 @@ export default function BacktestDetailPage() {
 
   const { summary } = detail;
   const fmt = (n: number) => (n > 0 ? "num-positive" : n < 0 ? "num-negative" : "");
+  const calendarEntries: TradeCalendarEntry[] = detail.entries.map((entry) => {
+    const noTrade = entry.result === "NO_TRADE";
+    return {
+      id: entry.id,
+      date: entry.entry_date,
+      title: noTrade ? "Día sin operar" : `${detail.asset} · ${entry.side === "BUY" ? "Compra" : entry.side === "SELL" ? "Venta" : "Operación"}`,
+      result: noTrade ? "No operado" : entry.result,
+      resultClass: noTrade ? "neutral" : entry.result === "TP" ? "positive" : entry.result === "SL" ? "negative" : "breakeven",
+      profit: entry.amount,
+      noTrade,
+      details: [
+        { label: "Símbolo", value: detail.asset },
+        { label: "Temporalidad", value: detail.timeframe },
+        { label: "Lotaje", value: String(detail.lot_size) },
+        { label: "Lado", value: entry.side === "BUY" ? "Compra" : entry.side === "SELL" ? "Venta" : "—" },
+        { label: "Precio apertura", value: entry.open_price != null ? String(entry.open_price) : "—" },
+        { label: "Precio cierre", value: entry.close_price != null ? String(entry.close_price) : "—" },
+        { label: "Resultado", value: noTrade ? "No operado" : entry.result },
+        { label: "Porcentaje", value: noTrade ? "—" : `${entry.percentage}%` },
+        { label: "Monto", value: noTrade ? "—" : `$${entry.amount}` },
+        { label: "Pips/Ticks", value: noTrade ? "—" : String(entry.pips_ticks) },
+        { label: "Observaciones", value: entry.observations ?? "—" },
+      ],
+    };
+  });
 
   return (
     <Layout>
@@ -444,8 +470,34 @@ export default function BacktestDetailPage() {
         </form>
       )}
 
-      {/* Tabla compacta para que quepa sin scroll horizontal: el símbolo ya está en la cabecera,
-          lado + precios van en "Operación" y %/pips debajo del monto. En móvil cada día es una tarjeta. */}
+      <TradeCalendar
+        key={`${detail.year}-${detail.month}`}
+        entries={calendarEntries}
+        initialMonth={new Date(detail.year, detail.month - 1, 1)}
+        getDayMetrics={(date, dayEntries) => {
+          const balance = detail.account_size + detail.entries
+            .filter((entry) => entry.entry_date <= date && entry.result !== "NO_TRADE")
+            .reduce((total, entry) => total + entry.amount, 0);
+          const profit = dayEntries
+            .filter((entry) => !entry.noTrade)
+            .reduce((total, entry) => total + entry.profit, 0);
+          return [
+            { label: "Balance", value: `$${balance.toFixed(2)}` },
+            { label: "Lotaje", value: String(detail.lot_size) },
+            { label: "Profit", value: `$${profit.toFixed(2)}`, tone: profit > 0 ? "positive" : profit < 0 ? "negative" : undefined },
+            { label: "Trades", value: String(dayEntries.filter((entry) => !entry.noTrade).length) },
+          ];
+        }}
+        onEditEntry={(entryId) => {
+          const entry = detail.entries.find((item) => item.id === entryId);
+          if (entry) startEditEntry(entry);
+        }}
+      />
+
+      {/* El listado tabular se conserva como alternativa al calendario. */}
+      <details className="panel calendar-table-disclosure">
+        <summary>Ver listado de días</summary>
+        <div className="calendar-table-content">
       <div className="panel" style={{ padding: 0 }}>
         <table className="entries-table">
           <thead>
@@ -494,6 +546,8 @@ export default function BacktestDetailPage() {
           </tbody>
         </table>
       </div>
+        </div>
+      </details>
 
       <h2>Resumen</h2>
       <div className="summary-grid">
