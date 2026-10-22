@@ -86,7 +86,7 @@ export default function BacktestListPage() {
 
   return (
     <Layout>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <div className="backtest-list-heading" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <h1>Mis backtests</h1>
         <button className="btn btn-primary" onClick={() => setShowForm(!showForm)}>
           {showForm ? "Cancelar" : "+ Nuevo backtest"}
@@ -94,7 +94,7 @@ export default function BacktestListPage() {
       </div>
 
       {showForm && (
-        <form className="panel" onSubmit={handleCreate}>
+        <form className="panel backtest-create-form" onSubmit={handleCreate}>
           <div className="form-row">
             <div className="field field-wide">
               <label>Nombre</label>
@@ -196,4 +196,3 @@ export default function BacktestListPage() {
     </Layout>
   );
 }
-
