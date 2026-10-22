@@ -528,6 +528,8 @@ tr:last-child td { border-bottom: none; }
   text-align: center;
 }
 
+.calendar-weekday-short { display: none; }
+
 .calendar-day {
   min-width: 0;
   min-height: 84px;
@@ -624,9 +626,47 @@ tr:last-child td { border-bottom: none; }
 
 @media (max-width: 520px) {
   .calendar-main { padding: 6px; }
-  .calendar-day { min-height: 68px; padding: 5px; }
-  .calendar-day-number { font-size: 13px; }
-  .calendar-day-summary { font-size: 9px; }
-  .calendar-modal { padding: 14px; }
+  .calendar-toolbar { gap: 6px; }
+  .calendar-toolbar h3 { flex: 1; min-width: 0; font-size: 14px; }
+  .calendar-toolbar .btn { flex-shrink: 0; padding: 6px 9px; }
+  .calendar-grid { gap: 2px; }
+  .calendar-weekday { padding: 5px 0; }
+  .calendar-day { min-height: 66px; padding: 4px; }
+  .calendar-day-number { font-size: 12px; }
+  .calendar-day-summary { font-size: 8px; line-height: 1.35; }
+  .calendar-weekday-full { display: none; }
+  .calendar-weekday-short { display: inline; }
+  .calendar-week-values { flex-wrap: wrap; }
+  .calendar-page-actions { align-items: flex-start !important; }
+  .calendar-page-actions h2 { width: 100%; margin: 24px 0 0; }
+  .calendar-page-action-buttons { width: 100%; flex-wrap: wrap; }
+  .calendar-page-action-buttons .btn { flex: 1 1 auto; }
+  .backtest-import-row { grid-template-columns: minmax(0, 1fr) !important; }
+  .calendar-modal-backdrop { align-items: flex-end; padding: 0; }
+  .calendar-modal {
+    width: 100%;
+    max-height: 92vh;
+    max-height: 92dvh;
+    padding: 16px 14px calc(16px + env(safe-area-inset-bottom));
+    border-radius: 12px 12px 0 0;
+  }
+  .calendar-modal-header h2 { font-size: 16px; }
+  .calendar-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .calendar-metric { padding: 10px; }
+  .calendar-metric strong { font-size: 16px; }
   .calendar-entry-detail dl { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 420px) {
+  .page { padding: 20px 12px 56px; }
+  .topbar { padding: 12px; }
+  h1 { font-size: 21px; }
+  .summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .summary-cell { padding: 11px 10px; }
+  .summary-grid .value { font-size: 17px; overflow-wrap: anywhere; }
+  .calendar-weeks { grid-template-columns: minmax(0, 1fr); }
+  .calendar-day { min-height: 60px; }
+  .calendar-day-summary { font-size: 7px; }
+  .calendar-modal-header { gap: 8px; }
+  .calendar-modal-header .btn { padding: 6px 10px; }
 }

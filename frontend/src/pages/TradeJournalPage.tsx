@@ -264,9 +264,9 @@ export default function TradeJournalPage() {
         </>
       )}
 
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+      <div className="calendar-page-actions" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
         <h2>Calendario de operaciones</h2>
-        <div style={{ display: "flex", gap: 8 }}>
+        <div className="calendar-page-action-buttons" style={{ display: "flex", gap: 8 }}>
           <button className="btn" onClick={() => { setShowNoTrade(!showNoTrade); setNoTradeError(null); }}>
             {showNoTrade ? "Cancelar" : "+ Día sin operar"}
           </button>
