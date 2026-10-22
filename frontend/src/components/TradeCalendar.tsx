@@ -26,6 +26,7 @@ interface TradeCalendarProps {
 }
 
 const WEEKDAYS = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+const WEEKDAYS_SHORT = ["D", "L", "M", "X", "J", "V", "S"];
 const MONTHS = [
   "enero", "febrero", "marzo", "abril", "mayo", "junio",
   "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
@@ -37,6 +38,15 @@ function dateKey(year: number, month: number, day: number) {
 
 function formatMoney(value: number) {
   return new Intl.NumberFormat("es-ES", { style: "currency", currency: "USD" }).format(value);
+}
+
+function formatCompactMoney(value: number) {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    notation: "compact",
+    maximumFractionDigits: 1,
+  }).format(value);
 }
 
 export function TradeCalendar({
@@ -112,7 +122,12 @@ export function TradeCalendar({
             )}
           </div>
           <div className="calendar-grid">
-            {WEEKDAYS.map((weekday) => <div className="calendar-weekday" key={weekday}>{weekday}</div>)}
+            {WEEKDAYS.map((weekday, index) => (
+              <div className="calendar-weekday" key={weekday} aria-label={weekday}>
+                <span className="calendar-weekday-full">{weekday}</span>
+                <span className="calendar-weekday-short">{WEEKDAYS_SHORT[index]}</span>
+              </div>
+            ))}
             {weeks.flatMap((week) => week.map((cell) => {
               const dayEntries = entriesByDate.get(cell.date) ?? [];
               const trades = dayEntries.filter((entry) => !entry.noTrade);
@@ -131,7 +146,7 @@ export function TradeCalendar({
                   {dayEntries.length > 0 && (
                     <span className="calendar-day-summary">
                       {trades.length > 0 ? <span>{trades.length} op.</span> : <span>Sin operar</span>}
-                      <span className={tone}>{formatMoney(profit)}</span>
+                      <span className={tone}>{formatCompactMoney(profit)}</span>
                     </span>
                   )}
                 </button>

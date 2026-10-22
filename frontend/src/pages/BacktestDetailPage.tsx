@@ -386,9 +386,9 @@ export default function BacktestDetailPage() {
         </div>
       </form>
 
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+      <div className="calendar-page-actions" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
         <h2>Días registrados</h2>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <div className="calendar-page-action-buttons" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <button
             className="btn"
             onClick={() => {
@@ -409,7 +409,7 @@ export default function BacktestDetailPage() {
 
       {showImport && (
         <div className="panel">
-          <div className="form-row" style={{ gridTemplateColumns: "minmax(0, 1fr) auto" }}>
+          <div className="form-row backtest-import-row" style={{ gridTemplateColumns: "minmax(0, 1fr) auto" }}>
             <div className="field" style={{ marginBottom: 0 }}>
               <label>Archivo CSV</label>
               <CsvFilePicker
