@@ -106,6 +106,9 @@ class BacktestSummary(BaseModel):
     profit_factor: Optional[float]
     consistency_margin: float
 
+class BacktestListItem(BacktestOut):
+    summary: BacktestSummary
+
 class BacktestDetail(BacktestOut):
     entries: list[BacktestEntryOut]
     summary: BacktestSummary

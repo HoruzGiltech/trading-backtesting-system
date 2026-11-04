@@ -272,6 +272,89 @@ tr:last-child td { border-bottom: none; }
   white-space: nowrap;
 }
 
+.backtest-filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0 12px;
+}
+.backtest-filters .field { min-width: 0; }
+.backtest-search { grid-column: 1 / -1; }
+.backtest-filter-footer {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+.backtest-card-list { display: grid; gap: 12px; }
+.backtest-card { margin: 0; }
+.backtest-card-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+.backtest-card-heading h2 {
+  margin: 0 0 4px;
+  color: var(--text);
+  font-size: 17px;
+  overflow-wrap: anywhere;
+}
+.backtest-card-heading > div:first-child > span {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+.backtest-card-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+.backtest-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  padding: 12px 0;
+  margin-top: 10px;
+  border-top: 1px solid var(--border);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+.backtest-card-meta span { display: flex; gap: 6px; }
+.backtest-card-meta strong {
+  color: var(--text-muted);
+  font-family: var(--font-ui);
+  font-weight: 400;
+}
+.backtest-card-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+.backtest-card-metrics > div {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 3px;
+  padding: 10px 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.backtest-card-metrics span {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+.backtest-card-metrics strong {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+
 /* En pantallas estrechas cada día se muestra como tarjeta */
 @media (max-width: 640px) {
   .entries-table thead { display: none; }
@@ -694,6 +777,14 @@ tr:last-child td { border-bottom: none; }
   .calendar-page-action-buttons { width: 100%; flex-wrap: wrap; }
   .calendar-page-action-buttons .btn { flex: 1 1 auto; }
   .backtest-import-row { grid-template-columns: minmax(0, 1fr) !important; }
+  .backtest-card-heading { flex-direction: column; }
+  .backtest-card-actions { justify-content: flex-start; }
+  .backtest-card-actions .btn { flex: 1 1 auto; }
+  .backtest-card-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .backtest-card-metrics > div { padding: 9px; }
+  .backtest-card-metrics strong { font-size: 13px; }
+  .backtest-filter-footer { align-items: flex-start; flex-direction: column; }
+  .calendar-add-hint { font-size: 12px; }
   .calendar-modal-backdrop { align-items: flex-end; padding: 0; }
   .calendar-modal {
     width: 100%;

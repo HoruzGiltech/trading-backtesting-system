@@ -118,6 +118,14 @@ export default function BacktestDetailPage() {
     setNoTradeError(null);
   }
 
+  function handleCalendarDateDoubleClick(date: string) {
+    if (editingEntry) cancelEdit();
+    setShowNoTrade(false);
+    setEntryError(null);
+    setEntryDate(date);
+    requestAnimationFrame(() => entryFormRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  }
+
   async function handleDeleteEntry() {
     if (!id || !editingEntry) return;
     await deleteBacktestEntry(id, editingEntry.id);
@@ -470,10 +478,12 @@ export default function BacktestDetailPage() {
         </form>
       )}
 
+      <p className="calendar-add-hint">Haz doble clic en cualquier fecha del calendario para agregar un registro con esa fecha.</p>
       <TradeCalendar
         key={`${detail.year}-${detail.month}`}
         entries={calendarEntries}
         initialMonth={new Date(detail.year, detail.month - 1, 1)}
+        onDoubleClickDate={handleCalendarDateDoubleClick}
         getDayMetrics={(date, dayEntries) => {
           const balance = detail.account_size + detail.entries
             .filter((entry) => entry.entry_date <= date && entry.result !== "NO_TRADE")

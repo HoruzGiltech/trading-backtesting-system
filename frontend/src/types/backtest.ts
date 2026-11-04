@@ -48,6 +48,10 @@ export interface BacktestDetail extends Backtest {
   entries: BacktestEntry[];
   summary: BacktestSummary;
 }
+
+export interface BacktestListItem extends Backtest {
+  summary: BacktestSummary;
+}
 // Fila leída de un CSV para importar en bloque
 export interface BacktestImportRow {
   entry_date: string;
