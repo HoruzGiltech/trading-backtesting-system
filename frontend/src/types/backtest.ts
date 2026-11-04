@@ -50,7 +50,8 @@ export interface BacktestDetail extends Backtest {
 }
 
 export interface BacktestListItem extends Backtest {
-  summary: BacktestSummary;
+  summary?: BacktestSummary;
+  metricsUnavailable?: boolean;
 }
 // Fila leída de un CSV para importar en bloque
 export interface BacktestImportRow {

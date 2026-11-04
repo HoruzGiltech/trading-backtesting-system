@@ -254,6 +254,12 @@ export default function BacktestListPage() {
         </section>
       )}
 
+      {backtests.some((bt) => bt.metricsUnavailable) && (
+        <p className="error-text" role="status">
+          No se pudieron cargar las métricas de uno o más backtests. El resto de la lista sigue disponible.
+        </p>
+      )}
+
       {loading ? (
         <p>Cargando...</p>
       ) : backtests.length === 0 ? (
@@ -262,50 +268,58 @@ export default function BacktestListPage() {
         <p>No se encontraron backtests con esos filtros.</p>
       ) : (
         <div className="backtest-card-list">
-          {filteredBacktests.map((bt) => (
-            <article className="panel backtest-card" key={bt.id}>
-              <div className="backtest-card-heading">
-                <div>
-                  <h2>{bt.name}</h2>
-                  <span>{bt.month}/{bt.year} · {bt.asset}</span>
+          {filteredBacktests.map((bt) => {
+            const summary = bt.summary;
+            return (
+              <article className="panel backtest-card" key={bt.id}>
+                <div className="backtest-card-heading">
+                  <div>
+                    <h2>{bt.name}</h2>
+                    <span>{bt.month}/{bt.year} · {bt.asset}</span>
+                  </div>
+                  <div className="backtest-card-actions">
+                    <button className="btn" onClick={() => navigate(`/backtests/${bt.id}`)}>
+                      Ver detalle
+                    </button>
+                    <ConfirmDeleteButton
+                      label="Eliminar"
+                      question={`¿Eliminar "${bt.name}" y todos sus días?`}
+                      onConfirm={async () => {
+                        await deleteBacktest(bt.id);
+                        setBacktests((list) => list.filter((backtest) => backtest.id !== bt.id));
+                      }}
+                    />
+                  </div>
                 </div>
-                <div className="backtest-card-actions">
-                  <button className="btn" onClick={() => navigate(`/backtests/${bt.id}`)}>
-                    Ver detalle
-                  </button>
-                  <ConfirmDeleteButton
-                    label="Eliminar"
-                    question={`¿Eliminar "${bt.name}" y todos sus días?`}
-                    onConfirm={async () => {
-                      await deleteBacktest(bt.id);
-                      setBacktests((list) => list.filter((backtest) => backtest.id !== bt.id));
-                    }}
-                  />
+                <div className="backtest-card-meta">
+                  <span><strong>Temporalidad</strong>{bt.timeframe}</span>
+                  <span><strong>Lotaje</strong>{bt.lot_size}</span>
+                  <span><strong>Cuenta</strong>{formatMoney(bt.account_size)}</span>
                 </div>
-              </div>
-              <div className="backtest-card-meta">
-                <span><strong>Temporalidad</strong>{bt.timeframe}</span>
-                <span><strong>Lotaje</strong>{bt.lot_size}</span>
-                <span><strong>Cuenta</strong>{formatMoney(bt.account_size)}</span>
-              </div>
-              <div className="backtest-card-metrics">
-                <div><span>Win rate</span><strong>{bt.summary.win_rate.toFixed(2)}%</strong></div>
-                <div>
-                  <span>Profit factor</span>
-                  <strong>
-                    {bt.summary.profit_factor?.toFixed(2) ?? (bt.summary.profit_amount > 0 ? "∞" : "N/D")}
-                  </strong>
+                <div className="backtest-card-metrics">
+                  <div><span>Win rate</span><strong>{summary ? `${summary.win_rate.toFixed(2)}%` : "N/D"}</strong></div>
+                  <div>
+                    <span>Profit factor</span>
+                    <strong>
+                      {summary
+                        ? summary.profit_factor?.toFixed(2) ?? (summary.profit_amount > 0 ? "∞" : "N/D")
+                        : "N/D"}
+                    </strong>
+                  </div>
+                  <div>
+                    <span>Margen de consistencia neta</span>
+                    <strong>{summary ? `${summary.consistency_margin.toFixed(2)}%` : "N/D"}</strong>
+                  </div>
+                  <div>
+                    <span>Ganancia neta</span>
+                    <strong className={summary && summary.net_profit > 0 ? "num-positive" : summary && summary.net_profit < 0 ? "num-negative" : ""}>
+                      {summary ? formatMoney(summary.net_profit) : "N/D"}
+                    </strong>
+                  </div>
                 </div>
-                <div><span>Margen de consistencia neta</span><strong>{bt.summary.consistency_margin.toFixed(2)}%</strong></div>
-                <div>
-                  <span>Ganancia neta</span>
-                  <strong className={bt.summary.net_profit > 0 ? "num-positive" : bt.summary.net_profit < 0 ? "num-negative" : ""}>
-                    {formatMoney(bt.summary.net_profit)}
-                  </strong>
-                </div>
-              </div>
-            </article>
-          ))}
+              </article>
+            );
+          })}
         </div>
       )}
     </Layout>

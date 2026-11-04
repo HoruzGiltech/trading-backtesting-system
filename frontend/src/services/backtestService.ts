@@ -16,7 +16,16 @@ export async function createBacktest(data: {
 
 export async function listBacktests(): Promise<BacktestListItem[]> {
   const response = await api.get<BacktestListItem[]>("/backtests");
-  return response.data;
+  return Promise.all(response.data.map(async (backtest) => {
+    if (backtest.summary) return backtest;
+    try {
+      const detail = await getBacktestDetail(backtest.id);
+      if (!detail.summary) throw new Error("Backtest detail response did not include a summary");
+      return { ...backtest, summary: detail.summary };
+    } catch {
+      return { ...backtest, metricsUnavailable: true };
+    }
+  }));
 }
 
 export async function getBacktestDetail(id: string): Promise<BacktestDetail> {
