@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export interface TradeCalendarEntry {
   id: string;
@@ -60,6 +60,7 @@ export function TradeCalendar({
 }: TradeCalendarProps) {
   const [month, setMonth] = useState(() => new Date(initialMonth.getFullYear(), initialMonth.getMonth(), 1));
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const pendingDayClick = useRef<number | null>(null);
   const year = month.getFullYear();
   const monthIndex = month.getMonth();
   const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
@@ -101,6 +102,10 @@ export function TradeCalendar({
     return () => window.removeEventListener("keydown", closeOnEscape);
   }, [selectedDate]);
 
+  useEffect(() => () => {
+    if (pendingDayClick.current !== null) window.clearTimeout(pendingDayClick.current);
+  }, []);
+
   function changeMonth(offset: number) {
     setMonth(new Date(year, monthIndex + offset, 1));
   }
@@ -140,12 +145,25 @@ export function TradeCalendar({
                   type="button"
                   key={cell.date}
                   className={`calendar-day${cell.inMonth ? "" : " outside-month"}${dayEntries.length ? " has-entries" : ""}`}
-                  onClick={() => {
-                    if (dayEntries.length > 0) setSelectedDate(cell.date);
+                  onClick={(event) => {
+                    if (pendingDayClick.current !== null) window.clearTimeout(pendingDayClick.current);
+                    pendingDayClick.current = null;
+                    if (event.detail >= 2) {
+                      setSelectedDate(null);
+                      onDoubleClickDate?.(cell.date);
+                    } else if (dayEntries.length > 0 && event.detail === 0) {
+                      setSelectedDate(cell.date);
+                    } else if (dayEntries.length > 0) {
+                      pendingDayClick.current = window.setTimeout(() => {
+                        setSelectedDate(cell.date);
+                        pendingDayClick.current = null;
+                      }, 300);
+                    }
                   }}
                   onDoubleClick={() => {
+                    if (pendingDayClick.current !== null) window.clearTimeout(pendingDayClick.current);
+                    pendingDayClick.current = null;
                     setSelectedDate(null);
-                    onDoubleClickDate?.(cell.date);
                   }}
                   title="Doble clic para agregar un registro en esta fecha"
                   aria-label={`${cell.date}${dayEntries.length ? `, ${trades.length} operaciones, ${formatMoney(profit)}` : ""}`}
