@@ -1,4 +1,4 @@
-import type { Backtest, BacktestDetail, BacktestImportResult, BacktestImportRow } from "../types/backtest";
+import type { Backtest, BacktestDetail, BacktestImportResult, BacktestImportRow, BacktestListItem } from "../types/backtest";
 import api from "./api";
 
 export async function createBacktest(data: {
@@ -14,8 +14,8 @@ export async function createBacktest(data: {
   return response.data;
 }
 
-export async function listBacktests(): Promise<Backtest[]> {
-  const response = await api.get<Backtest[]>("/backtests");
+export async function listBacktests(): Promise<BacktestListItem[]> {
+  const response = await api.get<BacktestListItem[]>("/backtests");
   return response.data;
 }
 

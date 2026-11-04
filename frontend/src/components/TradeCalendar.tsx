@@ -23,6 +23,7 @@ interface TradeCalendarProps {
   navigable?: boolean;
   getDayMetrics?: (date: string, entries: TradeCalendarEntry[]) => CalendarMetric[];
   onEditEntry?: (id: string) => void;
+  onDoubleClickDate?: (date: string) => void;
 }
 
 const WEEKDAYS = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
@@ -55,6 +56,7 @@ export function TradeCalendar({
   navigable = false,
   getDayMetrics,
   onEditEntry,
+  onDoubleClickDate,
 }: TradeCalendarProps) {
   const [month, setMonth] = useState(() => new Date(initialMonth.getFullYear(), initialMonth.getMonth(), 1));
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -138,8 +140,14 @@ export function TradeCalendar({
                   type="button"
                   key={cell.date}
                   className={`calendar-day${cell.inMonth ? "" : " outside-month"}${dayEntries.length ? " has-entries" : ""}`}
-                  disabled={dayEntries.length === 0}
-                  onClick={() => setSelectedDate(cell.date)}
+                  onClick={() => {
+                    if (dayEntries.length > 0) setSelectedDate(cell.date);
+                  }}
+                  onDoubleClick={() => {
+                    setSelectedDate(null);
+                    onDoubleClickDate?.(cell.date);
+                  }}
+                  title="Doble clic para agregar un registro en esta fecha"
                   aria-label={`${cell.date}${dayEntries.length ? `, ${trades.length} operaciones, ${formatMoney(profit)}` : ""}`}
                 >
                   <span className="calendar-day-number">{cell.day}</span>

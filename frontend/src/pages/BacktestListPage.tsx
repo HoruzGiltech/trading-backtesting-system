@@ -8,13 +8,19 @@ import { ConfirmDeleteButton } from "../components/ConfirmDeleteButton";
 import { createBacktest, deleteBacktest, importBacktestEntries, listBacktests } from "../services/backtestService";
 import type { CsvImportPreview } from "../services/csvImport";
 import { readBacktestCsv } from "../services/csvImport";
-import type { Backtest } from "../types/backtest";
+import type { BacktestListItem } from "../types/backtest";
 
 export default function BacktestListPage() {
-  const [backtests, setBacktests] = useState<Backtest[]>([]);
+  const [backtests, setBacktests] = useState<BacktestListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const navigate = useNavigate();
+  const [search, setSearch] = useState("");
+  const [filterMonthYear, setFilterMonthYear] = useState("");
+  const [filterAsset, setFilterAsset] = useState("");
+  const [filterTimeframe, setFilterTimeframe] = useState("");
+  const [filterLotSize, setFilterLotSize] = useState("");
+  const [filterAccountSize, setFilterAccountSize] = useState("");
 
   const [name, setName] = useState("");
   const [month, setMonth] = useState(1);
@@ -28,17 +34,49 @@ export default function BacktestListPage() {
   const [creating, setCreating] = useState(false);
 
   useEffect(() => {
-    loadBacktests();
+    let active = true;
+    listBacktests()
+      .then((items) => {
+        if (active) setBacktests(items);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
   }, []);
 
-  async function loadBacktests() {
-    setLoading(true);
-    try {
-      setBacktests(await listBacktests());
-    } finally {
-      setLoading(false);
-    }
-  }
+  const monthYearOptions = [...new Set(backtests.map((bt) => `${bt.year}-${bt.month}`))]
+    .map((value) => {
+      const [optionYear, optionMonth] = value.split("-").map(Number);
+      return { value, year: optionYear, month: optionMonth };
+    })
+    .sort((a, b) => b.year - a.year || b.month - a.month);
+  const assetOptions = [...new Set(backtests.map((bt) => bt.asset))].sort((a, b) => a.localeCompare(b, "es"));
+  const timeframeOptions = [...new Set(backtests.map((bt) => bt.timeframe))].sort((a, b) => a.localeCompare(b, "es"));
+  const lotSizeOptions = [...new Set(backtests.map((bt) => bt.lot_size))].sort((a, b) => a - b);
+  const accountSizeOptions = [...new Set(backtests.map((bt) => bt.account_size))].sort((a, b) => a - b);
+  const searchTerm = search.trim().toLocaleLowerCase("es");
+  const filteredBacktests = backtests.filter((bt) => {
+    const monthYear = `${bt.year}-${bt.month}`;
+    const matchesSearch = !searchTerm || [
+      bt.name, bt.asset, bt.timeframe, String(bt.month), String(bt.year),
+      String(bt.lot_size), String(bt.account_size),
+    ].some((value) => value.toLocaleLowerCase("es").includes(searchTerm));
+    return matchesSearch
+      && (!filterMonthYear || monthYear === filterMonthYear)
+      && (!filterAsset || bt.asset === filterAsset)
+      && (!filterTimeframe || bt.timeframe === filterTimeframe)
+      && (!filterLotSize || String(bt.lot_size) === filterLotSize)
+      && (!filterAccountSize || String(bt.account_size) === filterAccountSize);
+  });
+  const hasActiveFilters = Boolean(
+    search || filterMonthYear || filterAsset || filterTimeframe || filterLotSize || filterAccountSize
+  );
+  const formatMoney = (value: number) => new Intl.NumberFormat("es-ES", {
+    style: "currency", currency: "USD",
+  }).format(value);
 
   async function handleCsvFile(file: File) {
     setFormError(null);
@@ -145,52 +183,129 @@ export default function BacktestListPage() {
         </form>
       )}
 
+      {!loading && backtests.length > 0 && (
+        <section className="panel backtest-filters" aria-label="Filtros de backtests">
+          <div className="field backtest-search">
+            <label htmlFor="backtest-search">Buscar</label>
+            <input
+              id="backtest-search"
+              type="search"
+              value={search}
+              placeholder="Buscar por nombre, activo, temporalidad..."
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          <div className="field">
+            <label htmlFor="filter-month-year">Mes/Año</label>
+            <select id="filter-month-year" value={filterMonthYear} onChange={(e) => setFilterMonthYear(e.target.value)}>
+              <option value="">Todos</option>
+              {monthYearOptions.map((option) => (
+                <option key={option.value} value={option.value}>{option.month}/{option.year}</option>
+              ))}
+            </select>
+          </div>
+          <div className="field">
+            <label htmlFor="filter-asset">Activo</label>
+            <select id="filter-asset" value={filterAsset} onChange={(e) => setFilterAsset(e.target.value)}>
+              <option value="">Todos</option>
+              {assetOptions.map((option) => <option key={option} value={option}>{option}</option>)}
+            </select>
+          </div>
+          <div className="field">
+            <label htmlFor="filter-timeframe">Temporalidad</label>
+            <select id="filter-timeframe" value={filterTimeframe} onChange={(e) => setFilterTimeframe(e.target.value)}>
+              <option value="">Todas</option>
+              {timeframeOptions.map((option) => <option key={option} value={option}>{option}</option>)}
+            </select>
+          </div>
+          <div className="field">
+            <label htmlFor="filter-lot-size">Lotaje</label>
+            <select id="filter-lot-size" value={filterLotSize} onChange={(e) => setFilterLotSize(e.target.value)}>
+              <option value="">Todos</option>
+              {lotSizeOptions.map((option) => <option key={option} value={option}>{option}</option>)}
+            </select>
+          </div>
+          <div className="field">
+            <label htmlFor="filter-account-size">Cuenta</label>
+            <select id="filter-account-size" value={filterAccountSize} onChange={(e) => setFilterAccountSize(e.target.value)}>
+              <option value="">Todas</option>
+              {accountSizeOptions.map((option) => <option key={option} value={option}>{formatMoney(option)}</option>)}
+            </select>
+          </div>
+          <div className="backtest-filter-footer">
+            <span>{filteredBacktests.length} de {backtests.length} backtests</span>
+            {hasActiveFilters && (
+              <button
+                type="button"
+                className="btn btn-sm"
+                onClick={() => {
+                  setSearch("");
+                  setFilterMonthYear("");
+                  setFilterAsset("");
+                  setFilterTimeframe("");
+                  setFilterLotSize("");
+                  setFilterAccountSize("");
+                }}
+              >
+                Limpiar filtros
+              </button>
+            )}
+          </div>
+        </section>
+      )}
+
       {loading ? (
         <p>Cargando...</p>
       ) : backtests.length === 0 ? (
         <p>Aún no tienes backtests registrados. Crea el primero arriba.</p>
+      ) : filteredBacktests.length === 0 ? (
+        <p>No se encontraron backtests con esos filtros.</p>
       ) : (
-        <div className="panel" style={{ padding: 0 }}>
-          <table>
-            <thead>
-              <tr>
-                <th>Nombre</th>
-                <th>Mes/Año</th>
-                <th>Activo</th>
-                <th>Temporalidad</th>
-                <th>Lotaje</th>
-                <th>Cuenta</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {backtests.map((bt) => (
-                <tr key={bt.id}>
-                  <td><strong>{bt.name}</strong></td>
-                  <td>{bt.month}/{bt.year}</td>
-                  <td>{bt.asset}</td>
-                  <td>{bt.timeframe}</td>
-                  <td>{bt.lot_size}</td>
-                  <td>{bt.account_size}</td>
-                  <td>
-                    <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
-                      <button className="btn" onClick={() => navigate(`/backtests/${bt.id}`)}>
-                        Ver detalle
-                      </button>
-                      <ConfirmDeleteButton
-                        label="Eliminar"
-                        question={`¿Eliminar "${bt.name}" y todos sus días?`}
-                        onConfirm={async () => {
-                          await deleteBacktest(bt.id);
-                          setBacktests((list) => list.filter((b) => b.id !== bt.id));
-                        }}
-                      />
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="backtest-card-list">
+          {filteredBacktests.map((bt) => (
+            <article className="panel backtest-card" key={bt.id}>
+              <div className="backtest-card-heading">
+                <div>
+                  <h2>{bt.name}</h2>
+                  <span>{bt.month}/{bt.year} · {bt.asset}</span>
+                </div>
+                <div className="backtest-card-actions">
+                  <button className="btn" onClick={() => navigate(`/backtests/${bt.id}`)}>
+                    Ver detalle
+                  </button>
+                  <ConfirmDeleteButton
+                    label="Eliminar"
+                    question={`¿Eliminar "${bt.name}" y todos sus días?`}
+                    onConfirm={async () => {
+                      await deleteBacktest(bt.id);
+                      setBacktests((list) => list.filter((backtest) => backtest.id !== bt.id));
+                    }}
+                  />
+                </div>
+              </div>
+              <div className="backtest-card-meta">
+                <span><strong>Temporalidad</strong>{bt.timeframe}</span>
+                <span><strong>Lotaje</strong>{bt.lot_size}</span>
+                <span><strong>Cuenta</strong>{formatMoney(bt.account_size)}</span>
+              </div>
+              <div className="backtest-card-metrics">
+                <div><span>Win rate</span><strong>{bt.summary.win_rate.toFixed(2)}%</strong></div>
+                <div>
+                  <span>Profit factor</span>
+                  <strong>
+                    {bt.summary.profit_factor?.toFixed(2) ?? (bt.summary.profit_amount > 0 ? "∞" : "N/D")}
+                  </strong>
+                </div>
+                <div><span>Margen de consistencia neta</span><strong>{bt.summary.consistency_margin.toFixed(2)}%</strong></div>
+                <div>
+                  <span>Ganancia neta</span>
+                  <strong className={bt.summary.net_profit > 0 ? "num-positive" : bt.summary.net_profit < 0 ? "num-negative" : ""}>
+                    {formatMoney(bt.summary.net_profit)}
+                  </strong>
+                </div>
+              </div>
+            </article>
+          ))}
         </div>
       )}
     </Layout>

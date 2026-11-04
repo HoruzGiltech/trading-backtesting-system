@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 from uuid import UUID
 from app.core.database import get_db
 from app.core.deps import get_current_trader
@@ -7,7 +7,7 @@ from app.models.trader import Trader
 from app.models.backtest import Backtest
 from app.models.backtest_entry import BacktestEntry, ResultType
 from app.schemas.backtest import (
-    BacktestCreate, BacktestOut, BacktestDetail,
+    BacktestCreate, BacktestOut, BacktestDetail, BacktestListItem,
     BacktestEntryCreate, BacktestEntryOut, NoTradeEntryCreate,
     BacktestImport, BacktestImportResult, BacktestUpdate,
 )
@@ -29,17 +29,25 @@ def create_backtest(
     return backtest
 
 
-@router.get("", response_model=list[BacktestOut])
+@router.get("", response_model=list[BacktestListItem])
 def list_backtests(
     db: Session = Depends(get_db),
     current_trader: Trader = Depends(get_current_trader),
 ):
-    return (
+    backtests = (
         db.query(Backtest)
+        .options(selectinload(Backtest.entries))
         .filter(Backtest.trader_id == current_trader.id)
         .order_by(Backtest.created_at.desc())
         .all()
     )
+    return [
+        BacktestListItem(
+            **BacktestOut.model_validate(backtest).model_dump(),
+            summary=calculate_summary(backtest.entries),
+        )
+        for backtest in backtests
+    ]
 
 
 def _get_owned_backtest(backtest_id: UUID, db: Session, current_trader: Trader) -> Backtest:
